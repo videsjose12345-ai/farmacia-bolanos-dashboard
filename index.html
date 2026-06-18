@@ -1132,7 +1132,7 @@ function xChart(name,title){
   const src=document.getElementById(ids[name]);
   if(!src){toast('⚠ Sin datos');return;}
   // Alta resolución para compartir por WhatsApp/correo
-  const SCALE = 2;
+  const SCALE = 4;
   const W=1200, cH=Math.max(src.height||320,320), H=cH+200;
   const c=g('xc');
   c.width=W*SCALE; c.height=H*SCALE;
@@ -1148,7 +1148,7 @@ function xChart(name,title){
 function dlProv(){
   if(!PROV)return;
   const{razon,comercial,facturas,saldo}=PROV;
-  const SCALE=2;
+  const SCALE=4;
   const W=860,H=510;
   const c=g('xc');
   c.width=W*SCALE; c.height=H*SCALE;
