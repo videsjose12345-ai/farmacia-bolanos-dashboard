@@ -714,7 +714,7 @@ function renderProy() {
       plugins:{legend:{display:false},tooltip:TT,
         datalabels:{display:true,anchor:'end',align:'top',
           color:'#e2e8f0',font:{size:9,weight:'600'},
-          formatter:v=>fmtS(v),
+          formatter:v=>fmt(v),
           clamp:true}},
       scales:{x:{ticks:{color:GX,font:{size:11}},grid:{color:GG}},
               y:{ticks:{color:GX,font:{size:11},callback:v=>fmtS(v)},grid:{color:GG}}}}
@@ -740,7 +740,7 @@ function renderSemi() {
       plugins:{legend:{display:false},tooltip:TT,
         datalabels:{display:true,anchor:'end',align:'top',
           color:'#e2e8f0',font:{size:9,weight:'600'},
-          formatter:v=>fmtS(v),
+          formatter:v=>fmt(v),
           clamp:true}},
       scales:{x:{ticks:{color:GX,font:{size:11},autoSkip:false,maxRotation:45},grid:{display:false}},
               y:{ticks:{color:GX,font:{size:11},callback:v=>fmtS(v)},grid:{color:GG}}}}
@@ -801,7 +801,7 @@ function renderMes() {
       plugins:{legend:{display:false},tooltip:TT,
         datalabels:{display:true,anchor:'end',align:'top',
           color:'#e2e8f0',font:{size:9,weight:'600'},
-          formatter:v=>fmtS(v),
+          formatter:v=>fmt(v),
           clamp:true}},
       scales:{x:{ticks:{color:GX,font:{size:10},autoSkip:false,maxRotation:45},grid:{display:false}},
               y:{ticks:{color:GX,font:{size:11},callback:v=>fmtS(v)},grid:{color:GG}}}}
@@ -844,8 +844,12 @@ function renderDeuda() {
     data:{labels:DEUDA.map(h=>h.semana),
       datasets:[{data:DEUDA.map(h=>h.saldo),borderWidth:0,borderRadius:4,
         backgroundColor:DEUDA.map((_,i)=>`hsla(${26+i*12},82%,55%,0.82)`)}]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:TT},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:24}},
+      plugins:{legend:{display:false},tooltip:TT,
+        datalabels:{display:true,anchor:'end',align:'top',
+          color:'#e2e8f0',font:{size:9,weight:'600'},
+          formatter:v=>fmt(v),
+          clamp:true}},
       scales:{x:{ticks:{color:GX,font:{size:11}},grid:{display:false}},
               y:{ticks:{color:GX,font:{size:11},callback:v=>fmtS(v)},grid:{color:GG}}}}
   });
