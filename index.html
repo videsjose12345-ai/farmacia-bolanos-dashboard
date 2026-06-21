@@ -415,7 +415,7 @@ table.ht tr:last-child td{border-bottom:none;}
     <div class="dhist" id="dhist" style="display:none">
       <div class="dhtitle">Registros guardados</div>
       <table class="ht">
-        <thead><tr><th>Fecha</th><th>Hora</th><th>Semana</th><th>Saldo Total</th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Hora</th><th>Semana</th><th>Saldo Total</th><th style="width:48px;text-align:center;">Eliminar</th></tr></thead>
         <tbody id="dtbody"></tbody>
       </table>
     </div>
@@ -875,7 +875,7 @@ function renderProy() {
       plugins:{legend:{display:false},tooltip:TT,
         datalabels:{display:true,anchor:'end',align:'top',
           color:'#1E293B',font:{size:9,weight:'700'},
-          formatter:v=>fmt(v),
+          formatter:v=>fmtS(v),
           clamp:true}},
       scales:{x:{ticks:{color:GX,font:{size:11}},grid:{color:GG}},
               y:{ticks:{color:GX,font:{size:11},callback:v=>fmtS(v)},grid:{color:GG}}}}
@@ -909,7 +909,7 @@ function renderSemi() {
         }},
         datalabels:{display:true,anchor:'end',align:'top',
           color:'#374151',font:{size:9,weight:'700'},
-          formatter:v=>fmt(v),clamp:true}},
+          formatter:v=>fmtS(v),clamp:true}},
       scales:{x:{ticks:{color:GX,font:{size:11}},grid:{color:GG}},
               y:{ticks:{color:GX,font:{size:11},callback:v=>fmtS(v)},grid:{color:GG}}}}
   });
@@ -1049,7 +1049,7 @@ function renderTop() {
             if (!fb) return '';
             const name  = (fb.comercial || fb.name || '').trim();
             const short = name.length > 16 ? name.slice(0, 15) + '…' : name;
-            return [short, fmt(fb.value)];
+            return [short, fmtS(fb.value)];
           },
           clamp: true,
           clip: false,
@@ -1155,7 +1155,7 @@ function renderMes() {
       plugins:{legend:{display:false},tooltip:TT,
         datalabels:{display:true,anchor:'end',align:'top',
           color:'#1E293B',font:{size:9,weight:'700'},
-          formatter:v=>fmt(v),
+          formatter:v=>fmtS(v),
           clamp:true}},
       scales:{x:{ticks:{color:GX,font:{size:10},autoSkip:false,maxRotation:45},grid:{display:false}},
               y:{ticks:{color:GX,font:{size:11},callback:v=>fmtS(v)},grid:{color:GG}}}}
@@ -1203,15 +1203,31 @@ function renderDeuda() {
       plugins:{legend:{display:false},tooltip:TT,
         datalabels:{display:true,anchor:'end',align:'top',
           color:'#7F1D1D',font:{size:9,weight:'700'},
-          formatter:v=>fmt(v),
+          formatter:v=>fmtS(v),
           clamp:true}},
       scales:{x:{ticks:{color:'#6B7280',font:{size:11}},grid:{display:false}},
               y:{ticks:{color:'#6B7280',font:{size:11},callback:v=>fmtS(v)},grid:{color:'rgba(0,0,0,0.05)'}}}}
   });
   g('dhist').style.display='block';
-  g('dtbody').innerHTML=DEUDA.map(h=>
-    `<tr><td>${h.fecha}</td><td>${h.hora}</td><td>${h.semana}</td>`+
-    `<td style="color:#B91C1C;font-weight:700">${fmt(h.saldo)}</td></tr>`
+  // Tabla con botón eliminar individual por fila
+  g('dtbody').innerHTML=DEUDA.map((h,i)=>`
+    <tr>
+      <td>${h.fecha}</td>
+      <td>${h.hora}</td>
+      <td>${h.semana}</td>
+      <td style="color:#B91C1C;font-weight:700">${fmt(h.saldo)}</td>
+      <td style="text-align:center;">
+        <button
+          onclick="eliminarDeuda(${i})"
+          title="Eliminar este registro"
+          style="background:none;border:none;cursor:pointer;padding:4px 8px;
+                 border-radius:6px;color:#DC2626;font-size:15px;line-height:1;
+                 transition:background .15s;"
+          onmouseover="this.style.background='#FEE2E2'"
+          onmouseout="this.style.background='none'"
+        >🗑</button>
+      </td>
+    </tr>`
   ).join('');
 }
 
@@ -1238,8 +1254,20 @@ function addDeuda() {
 }
 
 function clearDeuda(){
-  if(!confirm('¿Eliminar todo el historial?'))return;
+  if(!confirm('¿Eliminar todo el historial de seguimiento?'))return;
   DEUDA=[];localStorage.setItem('fb_deuda','[]');renderDeuda();toast('Historial eliminado');
+}
+
+// Eliminar un registro individual con confirmación
+function eliminarDeuda(idx){
+  const h=DEUDA[idx];
+  if(!h)return;
+  const msg=`¿Desea eliminar este registro guardado?\n\nFecha: ${h.fecha} ${h.hora}\nSemana: ${h.semana}\nSaldo: ${fmt(h.saldo)}`;
+  if(!confirm(msg))return;
+  DEUDA.splice(idx,1);
+  localStorage.setItem('fb_deuda',JSON.stringify(DEUDA));
+  renderDeuda();
+  toast('Registro eliminado');
 }
 
 /* ════════════════════════════════════════════════════════════════
