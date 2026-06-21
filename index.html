@@ -993,8 +993,14 @@ function renderTop() {
   // Línea media para cuadrantes
   const midY = Math.round((maxVal + minVal) / 2);
 
-  if (CH['cTop']) CH['cTop'].destroy();
-  CH['cTop'] = new Chart(document.getElementById('cTop'), {
+  // ── FIX Error 1: destruir correctamente antes de crear ────────
+  // mkChart() llama CH[id].destroy() + registra en CH — evita
+  // "Canvas is already in use. Chart with ID 'N' must be destroyed"
+  // ── FIX Error 2: leer _fb desde ctx.dataset (no desde CH['cTop'])
+  // CH['cTop'] puede ser undefined cuando datalabels ejecuta el
+  // formatter durante la animación. ctx.dataset siempre está disponible.
+
+  mkChart('cTop', {
     type: 'bubble',
     data: { datasets },
     options: {
@@ -1011,19 +1017,21 @@ function renderTop() {
           borderColor: '#E2E8F0',
           borderWidth: 1,
           padding: 12,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
           callbacks: {
             title: items => {
-              const ds = CH['cTop'].data.datasets[items[0].datasetIndex];
-              return `#${ds._fb.rank} — ${ds._fb.name}`;
+              // ctx.dataset es seguro dentro de tooltip
+              const fb = items[0]?.dataset?._fb;
+              if (!fb) return '';
+              return `#${fb.rank} — ${fb.name}`;
             },
             label: items => {
-              const ds = CH['cTop'].data.datasets[items.datasetIndex];
+              const fb = items?.dataset?._fb;
+              if (!fb) return '';
               return [
-                `Nombre Comercial: ${ds._fb.comercial}`,
-                `Saldo Pendiente:  ${fmt(ds._fb.value)}`,
-                `Facturas activas: ${ds._fb.facturas}`,
-                `Ranking:          #${ds._fb.rank}`,
+                `Nombre Comercial: ${fb.comercial}`,
+                `Saldo Pendiente:  ${fmt(fb.value)}`,
+                `Facturas activas: ${fb.facturas}`,
+                `Ranking:          #${fb.rank}`,
               ];
             },
           },
@@ -1036,10 +1044,12 @@ function renderTop() {
           color: ctx => BORDER[ctx.datasetIndex] || '#334155',
           font: { size: 9.5, weight: '700', family: 'Segoe UI, sans-serif' },
           formatter: (val, ctx) => {
-            const ds = CH['cTop'].data.datasets[ctx.datasetIndex];
-            const name = ds._fb.comercial || ds._fb.name;
+            // FIX: leer _fb desde ctx.dataset, nunca desde CH['cTop']
+            const fb = ctx?.dataset?._fb;
+            if (!fb) return '';
+            const name  = (fb.comercial || fb.name || '').trim();
             const short = name.length > 16 ? name.slice(0, 15) + '…' : name;
-            return [short, fmt(ds._fb.value)];
+            return [short, fmt(fb.value)];
           },
           clamp: true,
           clip: false,
