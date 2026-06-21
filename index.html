@@ -336,10 +336,13 @@ table.ht tr:last-child td{border-bottom:none;}
     </div>
     <div class="cc">
       <div class="chdr">
-        <div><div class="ctitle">Top 10 Proveedores</div><div class="csub">Mayor saldo — solo PENDIENTE y PROGRAMADO</div></div>
+        <div><div class="ctitle">Top 10 Proveedores</div><div class="csub">Segmentación por cuadrante — PENDIENTE y PROGRAMADA</div></div>
         <button class="btn btn-sm" onclick="xChart('top','Top 10 Proveedores')">⬇ Imagen</button>
       </div>
-      <div class="cwrap" id="topWrap" style="height:320px"><canvas id="cTop" role="img" aria-label="Top 10 proveedores">Top 10.</canvas></div>
+      <div class="cwrap" id="topWrap" style="height:420px"><canvas id="cTop" role="img" aria-label="Top 10 proveedores bubble chart">Top 10 proveedores por saldo.</canvas></div>
+      <div style="margin-top:8px;font-size:11px;color:#94A3B8;text-align:center;font-weight:500;">
+        ⬤ &nbsp;Tamaño de burbuja = Saldo pendiente
+      </div>
     </div>
   </div>
 
@@ -885,33 +888,178 @@ function renderSemi() {
   });
 }
 
-/* Top 10 Proveedores — PENDIENTE||PROGRAMADA, suma saldo */
+/* Top 10 Proveedores — BUBBLE CHART por cuadrante
+   Misma fuente de datos: solo PENDIENTE + PROGRAMADA
+   Eje X = ranking (#1 mayor … #10 menor)
+   Eje Y = saldo pendiente ($)
+   Tamaño burbuja ∝ saldo */
 function renderTop() {
+  // ── Agrupar por proveedor (igual lógica que antes) ──
   const map = new Map();
+  const factMap = new Map();
   for (const r of DATA) {
     if (!(isPending(r.estatus)||isScheduled(r.estatus))) continue;
-    const key = ((r.razonSocial ?? r.nombreComercial) ?? '—').toString().trim() || '—';
-    map.set(key, (map.get(key)??0) + (r.saldo??0));
+    const razon = (r.razonSocial  ?? '').toString().trim();
+    const comer = (r.nombreComercial ?? '').toString().trim();
+    const key   = razon || comer || '—';
+    map.set(key,     (map.get(key)    ?? 0) + (r.saldo ?? 0));
+    factMap.set(key, (factMap.get(key)??  0) + 1);
   }
+
   const sorted = Array.from(map.entries())
-    .map(([name,value])=>({name,value:Math.round(value*100)/100}))
-    .sort((a,b)=>b.value-a.value).slice(0,10);
-  console.log('[Top10] proveedores:', sorted.length);
-  const labels = sorted.map(d=>d.name.length>26?d.name.slice(0,24)+'…':d.name);
-  const data   = sorted.map(d=>d.value);
-  g('topWrap').style.height = Math.max(300,sorted.length*40+60)+'px';
-  mkChart('cTop',{
-    type:'bar',
-    data:{labels,datasets:[{data,borderWidth:0,borderRadius:4,
-      backgroundColor:sorted.map((_,i)=>'#14B8A6')}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:80}},
-      plugins:{legend:{display:false},tooltip:TT,
-        datalabels:{display:true,anchor:'end',align:'right',
-          color:'#1E293B',font:{size:9,weight:'700'},
-          formatter:v=>fmt(v),
-          clamp:true}},
-      scales:{x:{ticks:{color:GX,font:{size:10},callback:v=>fmtS(v)},grid:{color:GG}},
-              y:{ticks:{color:'#475569',font:{size:11},font:{weight:'500'}},grid:{display:false}}}}
+    .map(([name,value])=>({
+      name,
+      comercial: name,
+      value: Math.round(value*100)/100,
+      facturas: factMap.get(name)||0
+    }))
+    .sort((a,b)=>b.value-a.value)
+    .slice(0,10);
+
+  console.log('[Top10 Bubble] proveedores:', sorted.length);
+  if (!sorted.length) return;
+
+  const maxVal = sorted[0].value;
+  const minVal = sorted[sorted.length-1].value;
+  const range  = maxVal - minVal || 1;
+
+  // Tamaño burbuja: escala entre 18 y 52 px según saldo relativo
+  const bubbleR = v => 18 + Math.round(((v - minVal) / range) * 34);
+
+  // Paleta de colores por cuadrante (ranking 1-3 crítico, 4-6 relevante, 7-8 moderado, 9-10 menor)
+  const QUAD_COLORS = [
+    'rgba(220,38,38,0.82)',   // 1 — Crítico
+    'rgba(220,38,38,0.75)',   // 2
+    'rgba(220,38,38,0.68)',   // 3
+    'rgba(234,88,12,0.82)',   // 4 — Relevante
+    'rgba(234,88,12,0.72)',   // 5
+    'rgba(234,88,12,0.62)',   // 6
+    'rgba(13,158,143,0.82)',  // 7 — Moderado
+    'rgba(13,158,143,0.72)',  // 8
+    'rgba(37,99,235,0.72)',   // 9 — Menor prioridad
+    'rgba(37,99,235,0.60)',   // 10
+  ];
+  const QUAD_BORDER = [
+    '#B91C1C','#B91C1C','#B91C1C',
+    '#C2410C','#C2410C','#C2410C',
+    '#0C7A6E','#0C7A6E',
+    '#1D4ED8','#1D4ED8',
+  ];
+
+  const datasets = sorted.map((d,i) => ({
+    label: d.name,
+    data: [{
+      x: i+1,           // ranking 1..10
+      y: d.value,       // saldo
+      r: bubbleR(d.value),
+    }],
+    backgroundColor: QUAD_COLORS[i]  || 'rgba(100,116,139,0.7)',
+    borderColor:     QUAD_BORDER[i]  || '#475569',
+    borderWidth: 2,
+    // metadata para tooltip
+    _meta: { name: d.name, facturas: d.facturas, rank: i+1 },
+  }));
+
+  // Líneas de referencia para cuadrantes
+  const mid = Math.round((maxVal + minVal) / 2);
+
+  if (CH['cTop']) CH['cTop'].destroy();
+  CH['cTop'] = new Chart(document.getElementById('cTop'), {
+    type: 'bubble',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 36, right: 20, bottom: 10, left: 10 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: items => {
+              const ds = CH['cTop'].data.datasets[items[0].datasetIndex];
+              return ds._meta ? `#${ds._meta.rank} ${ds._meta.name}` : ds.label;
+            },
+            label: items => {
+              const ds = CH['cTop'].data.datasets[items.datasetIndex];
+              const lines = [
+                `Saldo: ${fmt(items.raw.y)}`,
+                `Facturas: ${ds._meta?.facturas ?? '—'}`,
+                `Ranking: #${items.raw.x}`,
+              ];
+              return lines;
+            }
+          }
+        },
+        // Cuadrante labels usando afterDraw
+        afterDraw: undefined,
+        datalabels: {
+          display: true,
+          align: 'top',
+          anchor: 'end',
+          offset: 4,
+          color: ctx => QUAD_BORDER[ctx.datasetIndex] || '#334155',
+          font: { size: 9, weight: '700' },
+          formatter: (val, ctx) => {
+            const ds = CH['cTop'].data.datasets[ctx.datasetIndex];
+            const name = ds.label;
+            const short = name.length > 14 ? name.slice(0,13)+'…' : name;
+            return [short, fmt(val.y)];
+          },
+          clamp: true,
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Ranking (1 = mayor saldo)', color: '#64748B', font:{size:11,weight:'600'} },
+          min: 0.2, max: 10.8,
+          ticks: {
+            color: GX, font:{size:11}, stepSize:1,
+            callback: v => Number.isInteger(v) ? '#'+v : ''
+          },
+          grid: { color: GG },
+        },
+        y: {
+          title: { display: true, text: 'Saldo Pendiente ($)', color: '#64748B', font:{size:11,weight:'600'} },
+          ticks: { color: GX, font:{size:11}, callback: v=>fmtS(v) },
+          grid: { color: GG },
+        }
+      }
+    },
+    plugins: [{
+      // Dibujar líneas de cuadrante y etiquetas de zona
+      id: 'quadrantLines',
+      afterDraw(chart) {
+        const {ctx, chartArea:{left,right,top,bottom}, scales:{x,y}} = chart;
+        const midX = x.getPixelForValue(5.5);
+        const midY = y.getPixelForValue(mid);
+
+        ctx.save();
+        ctx.setLineDash([5,4]);
+        ctx.strokeStyle = 'rgba(148,163,184,0.45)';
+        ctx.lineWidth = 1.5;
+
+        // Vertical (entre #5 y #6)
+        ctx.beginPath(); ctx.moveTo(midX,top); ctx.lineTo(midX,bottom); ctx.stroke();
+        // Horizontal (mitad del rango)
+        ctx.beginPath(); ctx.moveTo(left,midY); ctx.lineTo(right,midY); ctx.stroke();
+
+        ctx.setLineDash([]);
+
+        // Etiquetas de cuadrante
+        const labels = [
+          {x:left+8, y:top+14, txt:'⬛ Crítico',        col:'#DC2626'},
+          {x:midX+8, y:top+14, txt:'🟧 Relevante',      col:'#EA580C'},
+          {x:left+8, y:bottom-8,txt:'🟦 Moderado',      col:'#0C7A6E'},
+          {x:midX+8, y:bottom-8,txt:'⬜ Menor prioridad',col:'#64748B'},
+        ];
+        labels.forEach(({x:lx,y:ly,txt,col}) => {
+          ctx.fillStyle = col;
+          ctx.font = '600 10px Segoe UI, sans-serif';
+          ctx.fillText(txt, lx, ly);
+        });
+        ctx.restore();
+      }
+    }]
   });
 }
 
