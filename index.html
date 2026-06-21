@@ -1166,22 +1166,66 @@ function renderMes() {
 function renderEst(k) {
   const pendingOnly = k.pendingOnly, scheduled = k.scheduled,
         overdue = k.overdue, collected = k.collected;
-  const total = pendingOnly+scheduled+overdue+collected || 1;
-  const pct = v => ((v/total)*100).toFixed(1)+'%';
-  const ECOLS=['#2563EB','#F59E0B','#DC2626','#65A30D'];
-  const LABS=['Programado','Pendiente','Vencido','Cobrado'];
-  const VALS=[scheduled, pendingOnly, overdue, collected];
+  const total  = pendingOnly+scheduled+overdue+collected || 1;
+  const pct    = v => ((v/total)*100).toFixed(1)+'%';
+  const pctNum = v => (v/total)*100;
+
+  const ECOLS = ['#2563EB','#F59E0B','#DC2626','#65A30D'];
+  const LABS  = ['Programado','Pendiente','Vencido','Cobrado'];
+  const VALS  = [scheduled, pendingOnly, overdue, collected];
+
   mkChart('cEst',{
     type:'doughnut',
-    data:{labels:LABS,datasets:[{data:VALS,backgroundColor:ECOLS,
-      borderWidth:3,borderColor:'#ffffff',hoverOffset:8}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
-      plugins:{legend:{display:false},
-        tooltip:{callbacks:{label:c=>fmt(c.raw)+' ('+pct(c.raw)+')'}}}}
+    data:{
+      labels:LABS,
+      datasets:[{
+        data:VALS,
+        backgroundColor:ECOLS,
+        borderWidth:3,
+        borderColor:'#ffffff',
+        hoverOffset:10
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      cutout:'58%',
+      plugins:{
+        legend:{ display:false },
+        tooltip:{
+          backgroundColor:'#fff',
+          titleColor:'#0F172A',
+          bodyColor:'#475569',
+          borderColor:'#E2E8F0',
+          borderWidth:1,
+          padding:12,
+          callbacks:{
+            title: items => LABS[items[0].dataIndex],
+            label: items => {
+              const v = VALS[items.dataIndex];
+              return ['  Monto:      '+fmt(v),'  Porcentaje: '+pct(v)];
+            }
+          }
+        },
+        datalabels:{
+          display: ctx => pctNum(VALS[ctx.dataIndex]) >= 3,
+          color:'#ffffff',
+          font:{ size:13, weight:'700', family:'Segoe UI, sans-serif' },
+          textShadowBlur:4,
+          textShadowColor:'rgba(0,0,0,0.3)',
+          formatter:(val) => ((val/total)*100).toFixed(1)+'%',
+          anchor:'center',
+          align:'center',
+          clamp:true,
+          clip:false
+        }
+      }
+    }
   });
+
   g('estLeg').innerHTML = LABS.map((l,i)=>
     `<span class="legi"><span class="legdot" style="background:${ECOLS[i]}"></span>`+
-    `${l}: ${fmt(VALS[i])} (${pct(VALS[i])})</span>`
+    `<strong style="color:${ECOLS[i]}">${l}</strong>: ${fmt(VALS[i])} (${pct(VALS[i])})</span>`
   ).join('');
 }
 
