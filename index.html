@@ -401,6 +401,18 @@ table.ht tr:last-child td{border-bottom:none;}
     </div>
   </div>
 
+  <div class="sec">Ingresos por Mes de Emisión</div>
+  <div class="cc" style="margin-bottom:15px;">
+    <div class="chdr">
+      <div>
+        <div class="ctitle">Ingresos por Mes de Emisión</div>
+        <div class="csub">Suma de SALDO por mes de emisión — Año 2026</div>
+      </div>
+      <button class="btn btn-sm" onclick="xChart('mesEmis','Ingresos por Mes de Emisión')">⬇ Imagen</button>
+    </div>
+    <div class="cwrap" style="height:280px"><canvas id="cMesEmis" role="img" aria-label="Pagos por mes de emisión">Por mes de emisión.</canvas></div>
+  </div>
+
   <div class="sec">Seguimiento de Deuda</div>
   <div class="dcard">
     <div class="chdr">
@@ -795,6 +807,7 @@ function recalcAll() {
   renderSemi();
   renderTop();
   renderMes();
+  renderMesEmision();
   renderEst(kpis);
 }
 
@@ -1162,6 +1175,38 @@ function renderMes() {
   });
 }
 
+/* Pagos por Mes de Emisión — fechaEmision, AÑO_EMISION=2026, suma saldo
+   Réplica exacta del estilo de renderMes pero agrupando por FECHA DE EMISIÓN.
+   NO modifica renderMes ni ningún otro gráfico. */
+function renderMesEmision() {
+  const MESES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const tots = new Array(12).fill(0);
+  for (const r of DATA) {
+    if (!r.fechaEmision) continue;
+    if (emisionYear(r) !== 2026) continue;
+    tots[r.fechaEmision.getMonth()] += r.saldo ?? 0;
+  }
+  const data = tots
+    .map((v,i)=>({label:MESES[i],value:Math.round(v*100)/100}))
+    .filter(d=>d.value>0);
+  console.log('[PagosMesEmision] meses con datos:', data.length, data);
+  const labels = data.map(d=>d.label);
+  const vals   = data.map(d=>d.value);
+  mkChart('cMesEmis',{
+    type:'bar',
+    data:{labels,datasets:[{data:vals,borderWidth:0,borderRadius:4,
+      backgroundColor:labels.map((_,i)=>'#2563EB')}]},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:24}},
+      plugins:{legend:{display:false},tooltip:TT,
+        datalabels:{display:true,anchor:'end',align:'top',
+          color:'#1E293B',font:{size:9,weight:'700'},
+          formatter:v=>fmtS(v),
+          clamp:true}},
+      scales:{x:{ticks:{color:GX,font:{size:10},autoSkip:false,maxRotation:45},grid:{display:false}},
+              y:{ticks:{color:GX,font:{size:11},callback:v=>fmtS(v)},grid:{color:GG}}}}
+  });
+}
+
 /* Pagos por Estatus — dona con kpis ya calculados */
 function renderEst(k) {
   const pendingOnly = k.pendingOnly, scheduled = k.scheduled,
@@ -1416,7 +1461,7 @@ function drawFtr(ctx,W,H){
 }
 function dlc(c,fn){const a=document.createElement('a');a.download=fn;a.href=c.toDataURL('image/png');a.click();}
 function xChart(name,title){
-  const ids={proy:'cProy',top:'cTop',mes:'cMes',est:'cEst',deuda:'cDeuda',semi:'cSemi'};
+  const ids={proy:'cProy',top:'cTop',mes:'cMes',mesEmis:'cMesEmis',est:'cEst',deuda:'cDeuda',semi:'cSemi'};
   const src=document.getElementById(ids[name]);
   if(!src){toast('⚠ Sin datos');return;}
   // Alta resolución para compartir por WhatsApp/correo
