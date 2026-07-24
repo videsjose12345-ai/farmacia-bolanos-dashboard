@@ -945,10 +945,12 @@ function renderTop() {
     if (!(isPending(r.estatus) || isScheduled(r.estatus))) continue;
     const razon  = (r.razonSocial     ?? '').toString().trim();
     const comer  = (r.nombreComercial ?? '').toString().trim();
-    const key    = razon || comer || '—';
+    // Agrupar por NOMBRE COMERCIAL (fallback a razón social si viene vacío)
+    const key    = comer || razon || '—';
     map.set(key,          (map.get(key)         ?? 0) + (r.saldo ?? 0));
     factMap.set(key,      (factMap.get(key)      ?? 0) + 1);
-    comercialMap.set(key, comer || razon);
+    // En el tooltip mostramos la razón social como dato complementario
+    comercialMap.set(key, razon || comer);
   }
 
   const sorted = Array.from(map.entries())
@@ -1041,7 +1043,7 @@ function renderTop() {
               const fb = items?.dataset?._fb;
               if (!fb) return '';
               return [
-                `Nombre Comercial: ${fb.comercial}`,
+                `Razón Social:     ${fb.comercial}`,
                 `Saldo Pendiente:  ${fmt(fb.value)}`,
                 `Facturas activas: ${fb.facturas}`,
                 `Ranking:          #${fb.rank}`,
@@ -1060,7 +1062,8 @@ function renderTop() {
             // FIX: leer _fb desde ctx.dataset, nunca desde CH['cTop']
             const fb = ctx?.dataset?._fb;
             if (!fb) return '';
-            const name  = (fb.comercial || fb.name || '').trim();
+            // fb.name = NOMBRE COMERCIAL (clave de agrupación)
+            const name  = (fb.name || fb.comercial || '').trim();
             const short = name.length > 16 ? name.slice(0, 15) + '…' : name;
             return [short, fmtS(fb.value)];
           },
