@@ -330,7 +330,7 @@ table.ht tr:last-child td{border-bottom:none;}
     <div class="chdr">
       <div>
         <div class="ctitle">Proyección de Pagos</div>
-        <div class="csub">Saldo por semana de vencimiento — solo PENDIENTE / PROGRAMADA</div>
+        <div class="csub">Saldo por semana de vencimiento — solo PENDIENTE / PROGRAMADA · AÑO VENCE 2026</div>
       </div>
       <button class="btn btn-sm" onclick="xChart('proy','Proyección de Pagos')">⬇ Imagen</button>
     </div>
@@ -868,12 +868,12 @@ const GX='#94A3B8', GG='rgba(0,0,0,0.05)';
 const TT={callbacks:{label:c=>fmt(c.raw)}};
 function mkChart(id,cfg){if(CH[id])CH[id].destroy();CH[id]=new Chart(document.getElementById(id),cfg);}
 
-/* Proyección de Pagos — PENDIENTE||PROGRAMADA, agrupado por semanaVence */
+/* Proyección de Pagos — PENDIENTE||PROGRAMADA, AÑO VENCE=2026, agrupado por semanaVence */
 function renderProy() {
   const pts = groupBySemana(DATA,
     r => r.semanaVence,
     r => r.saldo ?? 0,
-    r => isPending(r.estatus) || isScheduled(r.estatus)
+    r => (isPending(r.estatus) || isScheduled(r.estatus)) && venceYear(r) === 2026
   );
   console.log('[Proyección] puntos:', pts.length, pts.slice(0,3));
   const labels = pts.map(p=>p.label);
