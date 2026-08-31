@@ -445,6 +445,17 @@ table.ht tr:last-child td{border-bottom:none;}
     </div>
     <div class="cwrap" style="height:280px"><canvas id="cDeuda" role="img" aria-label="Seguimiento de deuda">Historial.</canvas></div>
   </div>
+
+  <div class="sec">Valor de Inventario</div>
+  <div class="dcard">
+    <div class="chdr">
+      <div><div class="ctitle">Valor de Inventario</div><div class="csub">Datos de la pestaña VALOR_INVENTARIO — se actualiza en todos los dispositivos</div></div>
+      <div class="dacts">
+        <button class="btn btn-sm" onclick="xChart('inv','Valor de Inventario')">⬇ Imagen</button>
+      </div>
+    </div>
+    <div class="cwrap" style="height:280px"><canvas id="cInv" role="img" aria-label="Valor de inventario">Inventario.</canvas></div>
+  </div>
 </div>
 
 <script>
@@ -744,6 +755,7 @@ let PROV  = null;
 // DEUDA: se lee de la pestaña "DEUDA" de Google Sheets (columnas SEMANA y SALDO).
 // Es de solo lectura y se ve igual en cualquier dispositivo.
 let DEUDA = [];
+let INV = [];
 
 /* ════════════════════════════════════════════════════════════════
    INICIO
@@ -752,6 +764,7 @@ document.addEventListener('DOMContentLoaded', () => {
   g('si').addEventListener('keydown', e => { if(e.key==='Enter') buscar(); });
   fetchSheet();
   fetchDeuda();
+  fetchInv();
 });
 
 /* ════════════════════════════════════════════════════════════════
@@ -762,6 +775,7 @@ async function doRefresh() {
   g('ricon').innerHTML = '<span class="sp"></span>';
   await fetchSheet();
   await fetchDeuda();
+  await fetchInv();
   g('btnRef').disabled = false;
   g('ricon').textContent = '↻';
 }
@@ -1399,6 +1413,105 @@ function renderDeuda() {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   VALOR DE INVENTARIO — pestaña VALOR_INVENTARIO (columnas SEMANA y VALOR)
+   Misma lógica que DEUDA: solo lectura, se ve en cualquier dispositivo.
+════════════════════════════════════════════════════════════════ */
+async function fetchInv() {
+  const rango = "'VALOR_INVENTARIO'!A1:B10000";
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}`
+    + `/values/${encodeURIComponent(rango)}`
+    + `?key=${API_KEY}`
+    + `&valueRenderOption=UNFORMATTED_VALUE`
+    + `&dateTimeRenderOption=FORMATTED_STRING`;
+
+  console.group('%c[FB] fetchInv — pestaña VALOR_INVENTARIO', 'color:#0F766E;font-weight:bold');
+  console.log('URL:', url);
+
+  try {
+    const res  = await fetch(url);
+    const json = await res.json();
+    console.log('HTTP status:', res.status, res.statusText);
+
+    if (!res.ok) {
+      const detail = json?.error?.message || '(sin mensaje)';
+      console.error('Error API VALOR_INVENTARIO:', detail);
+      console.groupEnd();
+      INV = [];
+      renderInv();
+      return;
+    }
+
+    const values = json.values ?? [];
+    console.log('Filas recibidas (con header):', values.length);
+
+    const norm = s => (s ?? '').toString().toUpperCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+
+    let semIdx = 0, valIdx = 1, dataRows = values;
+    if (values.length) {
+      const head = values[0].map(norm);
+      const si = head.findIndex(h => h.includes('SEMANA'));
+      const vi = head.findIndex(h => h.includes('VALOR') || h.includes('INVENTARIO') || h.includes('MONTO'));
+      if (si !== -1 || vi !== -1) {
+        if (si !== -1) semIdx = si;
+        if (vi !== -1) valIdx = vi;
+        dataRows = values.slice(1);
+      }
+    }
+
+    INV = dataRows
+      .map(row => {
+        const semRaw = row[semIdx];
+        const valRaw = row[valIdx];
+        if (semRaw == null || String(semRaw).trim() === '') return null;
+        const semStr = String(semRaw).trim();
+        const semNorm = norm(semStr);
+        if (semNorm === 'SEMANA' || semNorm === 'VALOR' || semNorm === 'MONTO' ||
+            semNorm === 'INVENTARIO' || semNorm === 'VALOR INVENTARIO') return null;
+        const valor = normalizeNum(valRaw);
+        if (!valor || valor === 0) return null;
+        const semana = /^\d+$/.test(semStr) ? ('Semana ' + semStr) : semStr;
+        return { semana, valor, semNum: parseInt(semStr.replace(/\D/g,'')) || 0 };
+      })
+      .filter(x => x !== null);
+
+    INV.sort((a,b) => a.semNum - b.semNum);
+
+    console.log('Registros VALOR_INVENTARIO cargados:', INV.length);
+    console.groupEnd();
+    renderInv();
+
+  } catch(err) {
+    console.error('[FB] fetchInv error:', err);
+    console.groupEnd();
+    INV = [];
+    renderInv();
+  }
+}
+
+function renderInv() {
+  if (!INV.length) {
+    if (CH['cInv']) {CH['cInv'].destroy();delete CH['cInv'];}
+    return;
+  }
+  mkChart('cInv',{
+    type:'bar',
+    data:{labels:INV.map(h=>h.semana),
+      datasets:[{data:INV.map(h=>h.valor),borderWidth:0,borderRadius:6,
+        backgroundColor:INV.map((_,i)=>`rgba(${15+Math.min(i*2,60)},${118+Math.min(i*3,90)},${110+Math.min(i*2,70)},0.88)`),
+        hoverBackgroundColor:INV.map(()=>'#0F766E')}]},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:24}},
+      plugins:{legend:{display:false},tooltip:TT,
+        datalabels:{display:true,anchor:'end',align:'top',
+          color:'#0F766E',font:{size:9,weight:'700'},
+          formatter:v=>fmtS(v),
+          clamp:true}},
+      scales:{x:{ticks:{color:'#6B7280',font:{size:11}},grid:{display:false}},
+              y:{ticks:{color:'#6B7280',font:{size:11},callback:v=>fmtS(v)},grid:{color:'rgba(0,0,0,0.05)'}}}}
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════
    BUSCAR PROVEEDOR — replica BuscarProveedor del TSX
 ════════════════════════════════════════════════════════════════ */
 function buscar() {
@@ -1500,7 +1613,7 @@ function drawFtr(ctx,W,H){
 }
 function dlc(c,fn){const a=document.createElement('a');a.download=fn;a.href=c.toDataURL('image/png');a.click();}
 function xChart(name,title){
-  const ids={proy:'cProy',top:'cTop',mes:'cMes',mesEmis:'cMesEmis',est:'cEst',deuda:'cDeuda',semi:'cSemi'};
+  const ids={proy:'cProy',top:'cTop',mes:'cMes',mesEmis:'cMesEmis',est:'cEst',deuda:'cDeuda',semi:'cSemi',inv:'cInv'};
   const src=document.getElementById(ids[name]);
   if(!src){toast('⚠ Sin datos');return;}
   // Alta resolución para compartir por WhatsApp/correo
