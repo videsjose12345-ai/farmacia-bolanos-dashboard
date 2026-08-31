@@ -438,18 +438,16 @@ table.ht tr:last-child td{border-bottom:none;}
   <div class="sec">Seguimiento de Deuda</div>
   <div class="dcard">
     <div class="chdr">
-      <div><div class="ctitle">Seguimiento de Deuda</div><div class="csub">Historial acumulativo — persiste entre sesiones</div></div>
+      <div><div class="ctitle">Seguimiento de Deuda</div><div class="csub">Datos de la hoja DEUDA — se actualiza en todos los dispositivos</div></div>
       <div class="dacts">
-        <button class="btn btn-sm btn-p" onclick="addDeuda()">+ Registrar Semana Actual</button>
         <button class="btn btn-sm" onclick="xChart('deuda','Seguimiento de Deuda')">⬇ Imagen</button>
-        <button class="btn btn-sm btn-d" onclick="clearDeuda()">✕ Limpiar Historial</button>
       </div>
     </div>
-    <div class="cwrap" style="height:210px"><canvas id="cDeuda" role="img" aria-label="Seguimiento de deuda">Historial.</canvas></div>
+    <div class="cwrap" style="height:280px"><canvas id="cDeuda" role="img" aria-label="Seguimiento de deuda">Historial.</canvas></div>
     <div class="dhist" id="dhist" style="display:none">
-      <div class="dhtitle">Registros guardados</div>
+      <div class="dhtitle">Registros de la hoja DEUDA</div>
       <table class="ht">
-        <thead><tr><th>Fecha</th><th>Hora</th><th>Semana</th><th>Saldo Total</th><th style="width:48px;text-align:center;">Eliminar</th></tr></thead>
+        <thead><tr><th>Semana</th><th>Saldo</th></tr></thead>
         <tbody id="dtbody"></tbody>
       </table>
     </div>
@@ -750,18 +748,17 @@ let DATA  = [];
 let CH    = {};
 let PROV  = null;
 
-// DEUDA: solo el historial de seguimiento manual persiste localmente
-// (es intencional — es un diario de registro por dispositivo)
+// DEUDA: se lee de la pestaña "DEUDA" de Google Sheets (columnas SEMANA y SALDO).
+// Es de solo lectura y se ve igual en cualquier dispositivo.
 let DEUDA = [];
-try { DEUDA = JSON.parse(localStorage.getItem('fb_deuda')||'[]'); } catch(_){}
 
 /* ════════════════════════════════════════════════════════════════
    INICIO
 ════════════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
   g('si').addEventListener('keydown', e => { if(e.key==='Enter') buscar(); });
-  renderDeuda();
   fetchSheet();
+  fetchDeuda();
 });
 
 /* ════════════════════════════════════════════════════════════════
@@ -771,6 +768,7 @@ async function doRefresh() {
   g('btnRef').disabled = true;
   g('ricon').innerHTML = '<span class="sp"></span>';
   await fetchSheet();
+  await fetchDeuda();
   g('btnRef').disabled = false;
   g('ricon').textContent = '↻';
 }
@@ -1302,6 +1300,78 @@ function renderEst(k) {
 /* ════════════════════════════════════════════════════════════════
    SEGUIMIENTO DE DEUDA
 ════════════════════════════════════════════════════════════════ */
+async function fetchDeuda() {
+  // Lee la pestaña "DEUDA" (columnas SEMANA y SALDO) de la misma hoja.
+  // Igual que DATOS FB: solo lectura, se ve en cualquier dispositivo.
+  const rango = "'DEUDA'!A1:B10000";
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}`
+    + `/values/${encodeURIComponent(rango)}`
+    + `?key=${API_KEY}`
+    + `&valueRenderOption=UNFORMATTED_VALUE`
+    + `&dateTimeRenderOption=FORMATTED_STRING`;
+
+  console.group('%c[FB] fetchDeuda — pestaña DEUDA', 'color:#B91C1C;font-weight:bold');
+  console.log('URL:', url);
+
+  try {
+    const res  = await fetch(url);
+    const json = await res.json();
+    console.log('HTTP status:', res.status, res.statusText);
+
+    if (!res.ok) {
+      const detail = json?.error?.message || '(sin mensaje)';
+      console.error('Error API DEUDA:', detail);
+      console.groupEnd();
+      DEUDA = [];
+      renderDeuda();
+      return;
+    }
+
+    const values = json.values ?? [];
+    console.log('Filas recibidas (con header):', values.length);
+
+    // Detectar fila de encabezados y columnas SEMANA / SALDO por nombre
+    const norm = s => (s ?? '').toString().toUpperCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+
+    let semIdx = 0, salIdx = 1, dataRows = values;
+    if (values.length) {
+      const head = values[0].map(norm);
+      const si = head.findIndex(h => h.includes('SEMANA'));
+      const li = head.findIndex(h => h.includes('SALDO') || h.includes('MONTO') || h.includes('DEUDA'));
+      if (si !== -1 && li !== -1) {
+        semIdx = si; salIdx = li; dataRows = values.slice(1);
+      }
+    }
+
+    DEUDA = dataRows
+      .map(row => {
+        const semRaw = row[semIdx];
+        const salRaw = row[salIdx];
+        if (semRaw == null || semRaw === '') return null;
+        // Etiqueta: si es número puro → "Semana N", si ya trae texto se respeta
+        const semStr = String(semRaw).trim();
+        const semana = /^\d+$/.test(semStr) ? ('Semana ' + semStr) : semStr;
+        const saldo  = normalizeNum(salRaw);
+        return { semana, saldo, semNum: parseInt(semStr.replace(/\D/g,'')) || 0 };
+      })
+      .filter(x => x !== null);
+
+    // Ordenar por número de semana ascendente
+    DEUDA.sort((a,b) => a.semNum - b.semNum);
+
+    console.log('Registros DEUDA cargados:', DEUDA.length);
+    console.groupEnd();
+    renderDeuda();
+
+  } catch(err) {
+    console.error('[FB] fetchDeuda error:', err);
+    console.groupEnd();
+    DEUDA = [];
+    renderDeuda();
+  }
+}
+
 function renderDeuda() {
   if (!DEUDA.length) {
     if (CH['cDeuda']) {CH['cDeuda'].destroy();delete CH['cDeuda'];}
@@ -1311,8 +1381,8 @@ function renderDeuda() {
     type:'bar',
     data:{labels:DEUDA.map(h=>h.semana),
       datasets:[{data:DEUDA.map(h=>h.saldo),borderWidth:0,borderRadius:6,
-        backgroundColor:DEUDA.map((_,i)=>`rgba(${185-i*4},${28+i*2},${28+i*2},0.88)`),
-        hoverBackgroundColor:DEUDA.map((_,i)=>'#B91C1C')}]},
+        backgroundColor:DEUDA.map((_,i)=>`rgba(${185-Math.min(i*3,120)},${28+Math.min(i,40)},${28+Math.min(i,40)},0.88)`),
+        hoverBackgroundColor:DEUDA.map(()=>'#B91C1C')}]},
     options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:24}},
       plugins:{legend:{display:false},tooltip:TT,
         datalabels:{display:true,anchor:'end',align:'top',
@@ -1323,65 +1393,13 @@ function renderDeuda() {
               y:{ticks:{color:'#6B7280',font:{size:11},callback:v=>fmtS(v)},grid:{color:'rgba(0,0,0,0.05)'}}}}
   });
   g('dhist').style.display='block';
-  // Tabla con botón eliminar individual por fila
-  g('dtbody').innerHTML=DEUDA.map((h,i)=>`
+  // Tabla de solo lectura: Semana + Saldo (los datos vienen de la hoja DEUDA)
+  g('dtbody').innerHTML=DEUDA.map(h=>`
     <tr>
-      <td>${h.fecha}</td>
-      <td>${h.hora}</td>
       <td>${h.semana}</td>
       <td style="color:#B91C1C;font-weight:700">${fmt(h.saldo)}</td>
-      <td style="text-align:center;">
-        <button
-          onclick="eliminarDeuda(${i})"
-          title="Eliminar este registro"
-          style="background:none;border:none;cursor:pointer;padding:4px 8px;
-                 border-radius:6px;color:#DC2626;font-size:15px;line-height:1;
-                 transition:background .15s;"
-          onmouseover="this.style.background='#FEE2E2'"
-          onmouseout="this.style.background='none'"
-        >🗑</button>
-      </td>
     </tr>`
   ).join('');
-}
-
-function addDeuda() {
-  if (!DATA.length){toast('⚠ Presiona Actualizar');return;}
-  const now=new Date();
-  // Replica SeguimientoDeuda: suma saldo de AÑO_VENCE=2026, isPending||isScheduled
-  let total=0;
-  for (const r of DATA) {
-    if (venceYear(r) !== 2026) continue;
-    if (isPending(r.estatus)||isScheduled(r.estatus)) total += r.saldo??0;
-  }
-  const value = Math.round(total*100)/100;
-  const wk = getIsoWeek(now);
-  DEUDA.push({
-    fecha: now.toLocaleDateString('es-SV'),
-    hora:  now.toLocaleTimeString('es-SV',{hour:'2-digit',minute:'2-digit'}),
-    semana:'Semana '+wk,
-    saldo: value
-  });
-  localStorage.setItem('fb_deuda',JSON.stringify(DEUDA));
-  renderDeuda();
-  toast('✓ Semana '+wk+' guardada — '+fmt(value));
-}
-
-function clearDeuda(){
-  if(!confirm('¿Eliminar todo el historial de seguimiento?'))return;
-  DEUDA=[];localStorage.setItem('fb_deuda','[]');renderDeuda();toast('Historial eliminado');
-}
-
-// Eliminar un registro individual con confirmación
-function eliminarDeuda(idx){
-  const h=DEUDA[idx];
-  if(!h)return;
-  const msg=`¿Desea eliminar este registro guardado?\n\nFecha: ${h.fecha} ${h.hora}\nSemana: ${h.semana}\nSaldo: ${fmt(h.saldo)}`;
-  if(!confirm(msg))return;
-  DEUDA.splice(idx,1);
-  localStorage.setItem('fb_deuda',JSON.stringify(DEUDA));
-  renderDeuda();
-  toast('Registro eliminado');
 }
 
 /* ════════════════════════════════════════════════════════════════
