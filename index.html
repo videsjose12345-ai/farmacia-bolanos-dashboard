@@ -438,14 +438,14 @@ table.ht tr:last-child td{border-bottom:none;}
   <div class="sec">Seguimiento de Deuda</div>
   <div class="dcard">
     <div class="chdr">
-      <div><div class="ctitle">Seguimiento de Deuda</div><div class="csub">Datos de la hoja DEUDA — se actualiza en todos los dispositivos</div></div>
+      <div><div class="ctitle">Seguimiento de Deuda</div><div class="csub">Datos de la pestaña DEUDA — se actualiza en todos los dispositivos</div></div>
       <div class="dacts">
         <button class="btn btn-sm" onclick="xChart('deuda','Seguimiento de Deuda')">⬇ Imagen</button>
       </div>
     </div>
     <div class="cwrap" style="height:280px"><canvas id="cDeuda" role="img" aria-label="Seguimiento de deuda">Historial.</canvas></div>
     <div class="dhist" id="dhist" style="display:none">
-      <div class="dhtitle">Registros de la hoja DEUDA</div>
+      <div class="dhtitle">Registros de la pestaña DEUDA</div>
       <table class="ht">
         <thead><tr><th>Semana</th><th>Saldo</th></tr></thead>
         <tbody id="dtbody"></tbody>
@@ -1339,8 +1339,11 @@ async function fetchDeuda() {
       const head = values[0].map(norm);
       const si = head.findIndex(h => h.includes('SEMANA'));
       const li = head.findIndex(h => h.includes('SALDO') || h.includes('MONTO') || h.includes('DEUDA'));
-      if (si !== -1 && li !== -1) {
-        semIdx = si; salIdx = li; dataRows = values.slice(1);
+      // Si al menos una columna coincide con un encabezado, se salta la fila 1
+      if (si !== -1 || li !== -1) {
+        if (si !== -1) semIdx = si;
+        if (li !== -1) salIdx = li;
+        dataRows = values.slice(1);
       }
     }
 
@@ -1348,11 +1351,19 @@ async function fetchDeuda() {
       .map(row => {
         const semRaw = row[semIdx];
         const salRaw = row[salIdx];
-        if (semRaw == null || semRaw === '') return null;
-        // Etiqueta: si es número puro → "Semana N", si ya trae texto se respeta
+        // Descartar filas vacías
+        if (semRaw == null || String(semRaw).trim() === '') return null;
         const semStr = String(semRaw).trim();
+        // Descartar cualquier fila de encabezado que se haya colado
+        // (texto "SEMANA", "SALDO", "MONTO", etc. en la columna semana)
+        const semNorm = norm(semStr);
+        if (semNorm === 'SEMANA' || semNorm === 'SALDO' || semNorm === 'MONTO' ||
+            semNorm === 'DEUDA'  || semNorm === 'SEMANA DEUDA') return null;
+        const saldo = normalizeNum(salRaw);
+        // Descartar filas sin saldo válido (0 o vacío) — evita barras en $0
+        if (!saldo || saldo === 0) return null;
+        // Etiqueta: si es número puro → "Semana N", si ya trae texto se respeta
         const semana = /^\d+$/.test(semStr) ? ('Semana ' + semStr) : semStr;
-        const saldo  = normalizeNum(salRaw);
         return { semana, saldo, semNum: parseInt(semStr.replace(/\D/g,'')) || 0 };
       })
       .filter(x => x !== null);
@@ -1393,7 +1404,7 @@ function renderDeuda() {
               y:{ticks:{color:'#6B7280',font:{size:11},callback:v=>fmtS(v)},grid:{color:'rgba(0,0,0,0.05)'}}}}
   });
   g('dhist').style.display='block';
-  // Tabla de solo lectura: Semana + Saldo (los datos vienen de la hoja DEUDA)
+  // Tabla de solo lectura: Semana + Saldo (los datos vienen de la pestaña DEUDA)
   g('dtbody').innerHTML=DEUDA.map(h=>`
     <tr>
       <td>${h.semana}</td>
