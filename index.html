@@ -347,31 +347,20 @@ table.rep td.m,table.rep th.m{text-align:right;white-space:nowrap;font-variant-n
 .rep-unif-note{display:block;font-size:11px;color:#8a6d00;font-weight:600;margin-top:1px;}
 table.rep td.m .rep-unif-note{text-align:right;}
 
-@page{size:letter landscape;margin:7mm;}
+@page{size:letter landscape;margin:6mm;}
 .rep-wk{color:var(--tx3);font-size:12px;white-space:nowrap;}
+#printRep{display:none;}
 @media print{
-  body.print-rep{background:#fff !important;}
-  body.print-rep .hdr,body.print-rep .tabs,body.print-rep #viewDash,body.print-rep .rep-noprint,
-  body.print-rep .toast,body.print-rep .lov,body.print-rep .dbgbar,body.print-rep .errbar{display:none !important;}
-  body.print-rep .main{padding:0;margin:0;max-width:none;}
-  body.print-rep #viewRep{display:block !important;}
-  body.print-rep #viewRep .cc{box-shadow:none;border:none;backdrop-filter:none;-webkit-backdrop-filter:none;
-    background:#fff;padding:0;width:1000px;}
-  body.print-rep .rep-cols{grid-template-columns:1fr 1fr !important;gap:12px;margin-top:10px;}
-  body.print-rep .rep-banner{padding:10px 16px;}
-  body.print-rep .rep-banner .bw{font-size:22px;}
-  body.print-rep table.rep{font-size:11px;}
-  body.print-rep table.rep td{padding:3px 8px;}
-  body.print-rep table.rep th{padding:5px 8px;}
-  body.print-rep .rep-total{margin-top:10px;padding:10px 18px;}
-  body.print-rep .rep-banner,body.print-rep .rep-bar,body.print-rep .rep-col-h,body.print-rep .rep-total,
-  body.print-rep table.rep th,body.print-rep table.rep tr.sub td,body.print-rep table.rep tr:nth-child(even) td
-    {-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-  body.print-rep table.rep tr{break-inside:avoid;}
+  body.print-rep{background:#fff !important;margin:0;}
+  body.print-rep > *:not(#printRep){display:none !important;}
+  body.print-rep #printRep{display:flex !important;align-items:center;justify-content:center;
+    width:100%;height:7.95in;margin:0;padding:0;overflow:hidden;page-break-after:avoid;}
+  body.print-rep #printRepImg{display:block;width:100%;height:100%;object-fit:contain;}
 }
 </style>
 </head>
 <body>
+<div id="printRep"><img id="printRepImg" alt="Reporte de Programación"></div>
 <div class="lov" id="lov"><div class="lspin"></div><div class="ltxt" id="ltxt">Conectando con Google Sheets...</div></div>
 <div class="toast" id="toast"></div>
 <canvas id="xc"></canvas>
@@ -1946,16 +1935,30 @@ function renderRep(){
 }
 
 // Imagen del reporte (logo, fecha y hora, alta resolución)
-function dlRep(){
-  if(!REP){toast('⚠ Sin datos para exportar');return;}
-  const {y,w,p,main,prev,grand}=REP;
+// Dibuja el reporte en un lienzo.
+// page=true → proporción exacta de hoja carta horizontal (filas y letra se estiran
+// o se compactan para llenar la hoja completa).
+function buildRepCanvas(page){
+  const {y,w,p,main,prev,grand,unif}=REP;
   const DARK='#02343F', BLUE='#067F90', LIME='#BFD83E', BLUE_S='#E3F3F5', LIME_S='#F4F9DC';
-  const W=1300, ROW=28, L=24, R=W-24, GAP=20, CW=(R-L-GAP)/2;
-  const colH=gp=>40+30+(gp.rows.length?gp.rows.length*ROW+34:40);
-  const BANNER=104;
-  const H=BANNER+20+Math.max(colH(main),colH(prev))+20+60+50;
-  const SCALE=3;
-  const c=g('xc'); c.width=W*SCALE; c.height=H*SCALE;
+  const W=1400, L=26, R=W-26, GAP=22, CW=(R-L-GAP)/2;
+  const BANNER=110, HEADC=42, THEAD=32, SUBT=36, TOTAL=58, FOOT=34;
+  const n=Math.max(main.rows.length,prev.rows.length,1);
+  const FIXED=BANNER+18+HEADC+THEAD+SUBT+18+TOTAL+14+FOOT;
+  let ROW=28, H;
+  if(page){
+    // Área imprimible carta horizontal (11 x 8.5 in, márgenes 6 mm)
+    const ratio=(8.5-0.47)/(11-0.47);
+    const target=Math.round(W*ratio);
+    ROW=Math.max(15,Math.min(46,(target-FIXED)/n));
+    H=Math.max(target,Math.round(FIXED+n*ROW));
+  } else {
+    H=Math.round(FIXED+n*ROW);
+  }
+  const fs=Math.max(10,Math.min(18,Math.round(ROW*0.5)));   // tamaño de letra de filas
+  const fsS=Math.max(9,fs-2);
+  const SCALE=page?2.5:3;
+  const c=document.createElement('canvas'); c.width=W*SCALE; c.height=H*SCALE;
   const ctx=c.getContext('2d'); ctx.setTransform(SCALE,0,0,SCALE,0,0);
   ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
   // Encabezado
@@ -1963,87 +1966,91 @@ function dlRep(){
   const gr=ctx.createLinearGradient(0,0,W,0); gr.addColorStop(0,LIME); gr.addColorStop(1,BLUE);
   ctx.fillStyle=gr; ctx.fillRect(0,BANNER-6,W,6);
   ctx.textAlign='left';
-  ctx.fillStyle=LIME; ctx.font='bold 13px Arial'; ctx.fillText('PROGRAMACIÓN DE PAGOS',L+4,30);
-  ctx.fillStyle='#fff'; ctx.font='bold 30px Arial'; ctx.fillText(`Semana ${w}`,L+4,64);
-  ctx.fillStyle='#cfe7ea'; ctx.font='16px Arial'; ctx.fillText(weekRange(y,w),L+4,86);
+  ctx.fillStyle=LIME; ctx.font='bold 14px Arial'; ctx.fillText('PROGRAMACIÓN DE PAGOS',L+4,30);
+  ctx.fillStyle='#fff'; ctx.font='bold 34px Arial'; ctx.fillText(`Semana ${w}`,L+4,68);
+  ctx.fillStyle='#cfe7ea'; ctx.font='18px Arial'; ctx.fillText(weekRange(y,w),L+4,92);
   if(LOGO_IMG.complete && LOGO_IMG.naturalWidth>0){
-    const lh=60, lw=Math.round(lh*LOGO_IMG.naturalWidth/LOGO_IMG.naturalHeight);
+    const lh=64, lw=Math.round(lh*LOGO_IMG.naturalWidth/LOGO_IMG.naturalHeight);
     ctx.fillStyle='#fff'; rrx(ctx,R-lw-20,16,lw+20,lh+12,8);
     ctx.drawImage(LOGO_IMG,R-lw-10,22,lw,lh);
   }
   const now=new Date();
-  ctx.textAlign='right'; ctx.fillStyle='#9fc4c9'; ctx.font='11px Arial';
-  ctx.fillText('Generado: '+now.toLocaleDateString('es-SV')+' '+now.toLocaleTimeString('es-SV',{hour:'2-digit',minute:'2-digit'}),R-260,30);
-  const top=BANNER+20;
-  const fit=(s,max)=>{ if(ctx.measureText(s).width<=max) return s;
+  ctx.textAlign='right'; ctx.fillStyle='#9fc4c9'; ctx.font='12px Arial';
+  ctx.fillText('Generado: '+now.toLocaleDateString('es-SV')+' '+now.toLocaleTimeString('es-SV',{hour:'2-digit',minute:'2-digit'}),R-290,30);
+  const top=BANNER+18;
+  const fit=(s,max)=>{ s=String(s); if(max<=0) return ''; if(ctx.measureText(s).width<=max) return s;
     while(s.length>1 && ctx.measureText(s+'…').width>max) s=s.slice(0,-1); return s+'…'; };
+  const mid=v=>v+Math.round(ROW/2)+Math.round(fs*0.35);
   const col=(x,title,sub,hdBg,hdFg,thBg,thFg,gp)=>{
     let yy=top; const xr=x+CW;
-    ctx.fillStyle=hdBg; rrx(ctx,x,yy,CW,40,8);
-    ctx.fillStyle=hdFg; ctx.textAlign='left'; ctx.font='bold 14px Arial'; ctx.fillText(fit(title,CW-200),x+12,yy+25);
-    ctx.textAlign='right'; ctx.font='12px Arial'; ctx.fillText(fit(sub,190),xr-12,yy+25);
-    yy+=40;
-    ctx.fillStyle=thBg; ctx.fillRect(x,yy,CW,30);
-    ctx.fillStyle=thFg; ctx.font='bold 11px Arial'; ctx.textAlign='left';
-    const wkc=gp.rows.length && gp.rows[0].weeks!==undefined;
-    ctx.fillText('#',x+10,yy+19); ctx.fillText('PROVEEDOR',x+40,yy+19);
-    if(wkc) ctx.fillText('SEMANA',xr-250,yy+19);
-    ctx.textAlign='right'; ctx.fillText('SALDO',xr-12,yy+19);
-    yy+=30;
+    ctx.fillStyle=hdBg; rrx(ctx,x,yy,CW,HEADC,8);
+    ctx.fillStyle=hdFg; ctx.textAlign='left'; ctx.font='bold 16px Arial'; ctx.fillText(fit(title,CW-210),x+14,yy+27);
+    ctx.textAlign='right'; ctx.font='13px Arial'; ctx.fillText(fit(sub,190),xr-14,yy+27);
+    yy+=HEADC;
+    const wkc=gp.rows.some(r=>r.weeks!==undefined);
+    ctx.fillStyle=thBg; ctx.fillRect(x,yy,CW,THEAD);
+    ctx.fillStyle=thFg; ctx.font='bold 12px Arial'; ctx.textAlign='left';
+    ctx.fillText('#',x+12,yy+21); ctx.fillText('PROVEEDOR',x+46,yy+21);
+    if(wkc) ctx.fillText('SEMANA',xr-260,yy+21);
+    ctx.textAlign='right'; ctx.fillText('SALDO',xr-14,yy+21);
+    yy+=THEAD;
     if(!gp.rows.length){
-      ctx.fillStyle='#94a3b8'; ctx.font='13px Arial'; ctx.textAlign='left';
-      ctx.fillText('Sin facturas pendientes o programadas.',x+10,yy+24); return;
+      ctx.fillStyle='#94a3b8'; ctx.font='14px Arial'; ctx.textAlign='left';
+      ctx.fillText('Sin facturas pendientes o programadas.',x+12,yy+26); return;
     }
     gp.rows.forEach((r,i)=>{
       if(i%2){ctx.fillStyle='#F8FAFC';ctx.fillRect(x,yy,CW,ROW);}
-      ctx.fillStyle='#94a3b8'; ctx.font='12px Arial'; ctx.textAlign='left'; ctx.fillText(String(i+1),x+10,yy+18);
-      ctx.fillStyle='#0f172a'; ctx.font='13px Arial';
-      const nm=fit(r.name,wkc?CW-300:(r.prevSaldo?CW-420:CW-170)); ctx.fillText(nm,x+40,yy+18);
-      if(r.prevSaldo){ const nx=x+40+ctx.measureText(nm).width+8;
-        ctx.fillStyle='#8a6d00'; ctx.font='bold 11px Arial';
-        ctx.fillText(fit(`+ ${fmt(r.prevSaldo)} pend. (sem. ${r.prevWeeks})`,xr-140-nx),nx,yy+18); }
-      if(wkc){ctx.fillStyle='#64748b'; ctx.font='12px Arial'; ctx.fillText(fit(r.weeks,120),xr-250,yy+18);}
-      ctx.textAlign='right'; ctx.font='bold 13px Arial'; ctx.fillText(fmt(r.saldo),xr-12,yy+18);
+      ctx.fillStyle='#94a3b8'; ctx.font=fsS+'px Arial'; ctx.textAlign='left'; ctx.fillText(String(i+1),x+12,mid(yy));
+      ctx.fillStyle='#0f172a'; ctx.font=fs+'px Arial';
+      const nm=fit(r.name,wkc?CW-320:(r.prevSaldo?CW-470:CW-190)); ctx.fillText(nm,x+46,mid(yy));
+      if(r.prevSaldo){ const nx=x+46+ctx.measureText(nm).width+10;
+        ctx.fillStyle='#8a6d00'; ctx.font='bold '+fsS+'px Arial';
+        ctx.fillText(fit(`+ ${fmt(r.prevSaldo)} pend. (sem. ${r.prevWeeks})`,xr-160-nx),nx,mid(yy)); }
+      if(wkc){ctx.fillStyle='#64748b'; ctx.font=fsS+'px Arial'; ctx.fillText(fit(r.weeks,130),xr-260,mid(yy));}
+      ctx.fillStyle='#0f172a'; ctx.textAlign='right'; ctx.font='bold '+fs+'px Arial'; ctx.fillText(fmt(r.saldo),xr-14,mid(yy));
       ctx.strokeStyle='#E2E8F0'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,yy+ROW); ctx.lineTo(xr,yy+ROW); ctx.stroke();
       yy+=ROW;
     });
-    ctx.fillStyle=thBg; ctx.fillRect(x,yy,CW,34);
-    ctx.fillStyle=thFg; ctx.font='bold 13px Arial'; ctx.textAlign='left';
-    ctx.fillText(`Subtotal (${gp.rows.length})`,x+40,yy+22);
-    ctx.textAlign='right'; ctx.fillText(fmt(gp.total),xr-12,yy+22);
+    ctx.fillStyle=thBg; ctx.fillRect(x,yy,CW,SUBT);
+    ctx.fillStyle=thFg; ctx.font='bold 15px Arial'; ctx.textAlign='left';
+    ctx.fillText(`Subtotal (${gp.rows.length})`,x+46,yy+24);
+    ctx.textAlign='right'; ctx.fillText(fmt(gp.total),xr-14,yy+24);
   };
-  col(L,`Proveedores a programar — Semana ${w}${REP.unif?' (unificado)':''}`,`${main.rows.length} proveedores`,BLUE,'#fff',BLUE_S,BLUE,main);
+  col(L,`Proveedores a programar — Semana ${w}${unif?' (unificado)':''}`,`${main.rows.length} proveedores`,BLUE,'#fff',BLUE_S,BLUE,main);
   col(L+CW+GAP,`Pendientes de entregar — semana ${p.w} y anteriores`,`${prev.rows.length} proveedores`,LIME,DARK,LIME_S,DARK,prev);
-  // Total
-  const ty=top+Math.max(colH(main),colH(prev))+20;
-  ctx.fillStyle=DARK; rrx(ctx,L,ty,R-L,54,10);
-  ctx.fillStyle=LIME; ctx.fillRect(L,ty,8,54);
-  ctx.fillStyle='#cfe7ea'; ctx.font='bold 13px Arial'; ctx.textAlign='left'; ctx.fillText('TOTAL A PROGRAMAR',L+24,ty+33);
-  ctx.fillStyle=LIME; ctx.font='bold 24px Arial'; ctx.textAlign='right'; ctx.fillText(fmt(grand),R-20,ty+36);
+  // Total (pegado al pie de la hoja)
+  const ty=H-FOOT-14-TOTAL;
+  ctx.fillStyle=DARK; rrx(ctx,L,ty,R-L,TOTAL,10);
+  ctx.fillStyle=LIME; ctx.fillRect(L,ty,9,TOTAL);
+  ctx.fillStyle='#cfe7ea'; ctx.font='bold 15px Arial'; ctx.textAlign='left'; ctx.fillText('TOTAL A PROGRAMAR',L+26,ty+36);
+  ctx.fillStyle=LIME; ctx.font='bold 28px Arial'; ctx.textAlign='right'; ctx.fillText(fmt(grand),R-22,ty+39);
   drawFtr(ctx,W,H);
-  dlc(c,`programacion-semana-${w}-${y}.png`);
+  return c;
+}
+
+function dlRep(){
+  if(!REP){toast('⚠ Sin datos para exportar');return;}
+  const c=buildRepCanvas(false);
+  dlc(c,`programacion-semana-${REP.w}-${REP.y}.png`);
   toast('✓ Imagen del reporte guardada');
 }
 
-// Impresión: hoja horizontal, todo el reporte ajustado a UNA sola página
+// Impresión: el reporte se convierte en imagen con proporción de hoja carta
+// horizontal y ocupa la HOJA COMPLETA.
 function prepPrintRep(){
-  if(g('viewRep').style.display==='none') return;     // solo si está abierto el reporte
-  const cc=g('viewRep').querySelector('.cc');
+  if(g('viewRep').style.display==='none' || !REP) return false;
+  const img=g('printRepImg');
+  img.src=buildRepCanvas(true).toDataURL('image/png');
   document.body.classList.add('print-rep');
-  cc.style.zoom='';
-  // Área útil carta horizontal con márgenes de 7 mm (a 96 dpi)
-  const PAGE_W=1000, PAGE_H=760;
-  const prevW=cc.style.width; cc.style.width=PAGE_W+'px';
-  const hgt=cc.scrollHeight;
-  cc.style.width=prevW;
-  const z=Math.min(1, PAGE_H/hgt);
-  cc.style.zoom=z<1?String(Math.floor(z*1000)/1000):'';
+  return true;
 }
-function endPrintRep(){
-  document.body.classList.remove('print-rep');
-  const cc=g('viewRep')?.querySelector('.cc'); if(cc) cc.style.zoom='';
+function endPrintRep(){ document.body.classList.remove('print-rep'); }
+function printRep(){
+  if(!REP){toast('⚠ Sin datos para imprimir');return;}
+  if(!prepPrintRep()) return;
+  const img=g('printRepImg');
+  (img.decode?img.decode():Promise.resolve()).catch(()=>{}).then(()=>window.print());
 }
-function printRep(){ prepPrintRep(); window.print(); }
 window.addEventListener('beforeprint',()=>{ if(!document.body.classList.contains('print-rep')) prepPrintRep(); });
 window.addEventListener('afterprint',endPrintRep);
 
