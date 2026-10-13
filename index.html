@@ -340,6 +340,12 @@ table.rep td.m,table.rep th.m{text-align:right;white-space:nowrap;font-variant-n
 .rep-total span{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#cfe7ea;font-weight:700;}
 .rep-total b{font-size:26px;font-weight:800;color:var(--lg-lime);}
 @media(max-width:860px){.rep-cols{grid-template-columns:1fr;}}
+.btn-unif{border-color:var(--lg-blue);color:var(--lg-blue);}
+.btn-unif.on{background:var(--lg-blue);color:#fff;border-color:var(--lg-blue);}
+.btn-unif .dotu{display:inline-block;width:9px;height:9px;border-radius:50%;background:#cbd5e1;}
+.btn-unif.on .dotu{background:var(--lg-lime);}
+.rep-unif-note{display:block;font-size:11px;color:#8a6d00;font-weight:600;margin-top:1px;}
+table.rep td.m .rep-unif-note{text-align:right;}
 
 @page{size:letter landscape;margin:7mm;}
 .rep-wk{color:var(--tx3);font-size:12px;white-space:nowrap;}
@@ -548,6 +554,7 @@ table.rep td.m,table.rep th.m{text-align:right;white-space:nowrap;font-variant-n
           <label for="repWeek">Semana a programar</label>
           <select class="rep-sel" id="repWeek" onchange="renderRep()"></select>
         </div>
+        <button class="btn btn-sm btn-unif" id="btnUnif" onclick="toggleUnif()" title="Pasar a la izquierda los pendientes de semanas anteriores del mismo proveedor"><span class="dotu"></span> Unificar: <b id="unifLbl">NO</b></button>
         <button class="btn btn-sm" onclick="dlRep()">⬇ Imagen</button>
         <button class="btn btn-sm" onclick="printRep()">🖨 Imprimir / PDF</button>
       </div>
@@ -1869,13 +1876,43 @@ function repFillWeeks(){
   sel.value = (prevVal && keys.includes(Number(prevVal))) ? prevVal : String(cy*100+cw);
 }
 
+let REP_UNIF=false;
+try{ REP_UNIF = localStorage.getItem('fb_rep_unif')==='1'; }catch(_){}
+function syncUnifBtn(){
+  const b=g('btnUnif'); if(!b) return;
+  b.classList.toggle('on',REP_UNIF); txt('unifLbl',REP_UNIF?'SÍ':'NO');
+}
+function toggleUnif(){
+  REP_UNIF=!REP_UNIF;
+  try{ localStorage.setItem('fb_rep_unif',REP_UNIF?'1':'0'); }catch(_){}
+  syncUnifBtn(); renderRep();
+  toast(REP_UNIF?'✓ Unificación activada':'Unificación desactivada');
+}
+// Pasa a la izquierda los pendientes anteriores de proveedores que ya están en la semana elegida
+function repUnify(main,prev){
+  const rows=main.rows.map(x=>({...x}));
+  const idx=new Map(rows.map((x,i)=>[x.name,i]));
+  const rest=[];
+  for(const pr of prev.rows){
+    if(idx.has(pr.name)){
+      const r=rows[idx.get(pr.name)];
+      r.prevSaldo=pr.saldo; r.prevWeeks=pr.weeks;
+      r.saldo=Math.round((r.saldo+pr.saldo)*100)/100;
+    } else rest.push(pr);
+  }
+  rows.sort((a,b)=>b.saldo-a.saldo);
+  const sum=a=>Math.round(a.reduce((s,x)=>s+x.saldo,0)*100)/100;
+  return { main:{rows,total:sum(rows)}, prev:{rows:rest,total:sum(rest)} };
+}
+
 function repColHTML(cls,title,sub,grp){
   const wk=cls==='prev';
   let html=`<div class="c-${cls}"><div class="rep-col-h ${cls}"><b>${repEsc(title)}</b><span>${repEsc(sub)}</span></div>`;
   if(!grp.rows.length) return html+`<div class="rep-empty">Sin facturas pendientes o programadas.</div></div>`;
   html+=`<table class="rep"><thead><tr><th>#</th><th>Proveedor</th>${wk?'<th>Semana</th>':''}<th class="m">Saldo</th></tr></thead><tbody>`;
   grp.rows.forEach((x,i)=>{
-    html+=`<tr><td class="n">${i+1}</td><td>${repEsc(x.name)}</td>${wk?`<td class="rep-wk">${repEsc(x.weeks)}</td>`:''}<td class="m">${fmt(x.saldo)}</td></tr>`;
+    const note=x.prevSaldo?`<span class="rep-unif-note">incluye ${fmt(x.prevSaldo)} pendiente (sem. ${repEsc(x.prevWeeks)})</span>`:'';
+    html+=`<tr><td class="n">${i+1}</td><td>${repEsc(x.name)}${note}</td>${wk?`<td class="rep-wk">${repEsc(x.weeks)}</td>`:''}<td class="m">${fmt(x.saldo)}</td></tr>`;
   });
   html+=`<tr class="sub"><td></td><td>Subtotal (${grp.rows.length})</td>${wk?'<td></td>':''}<td class="m">${fmt(grp.total)}</td></tr></tbody></table></div>`;
   return html;
@@ -1888,9 +1925,11 @@ function renderRep(){
   const k=Number(g('repWeek').value);
   const y=Math.floor(k/100), w=k%100;
   const p=prevWeek(y,w);
-  const main=repGroup(y,w), prev=repGroupPrev(y,w);
+  syncUnifBtn();
+  let main=repGroup(y,w), prev=repGroupPrev(y,w);
+  if(REP_UNIF){ const u=repUnify(main,prev); main=u.main; prev=u.prev; }
   const grand=Math.round((main.total+prev.total)*100)/100;
-  REP={y,w,p,main,prev,grand};
+  REP={y,w,p,main,prev,grand,unif:REP_UNIF};
   const logo=document.querySelector('.logo')?.src||'';
   body.innerHTML =
     `<div class="rep-banner"><div>
@@ -1900,7 +1939,7 @@ function renderRep(){
       </div>${logo?`<img class="bl" src="${logo}" alt="Farmacia Bolaños">`:''}</div>
      <div class="rep-bar"></div>
      <div class="rep-cols">
-       ${repColHTML('main',`Proveedores a programar — Semana ${w}`,`${main.rows.length} proveedores`,main)}
+       ${repColHTML('main',`Proveedores a programar — Semana ${w}${REP_UNIF?' (unificado)':''}`,`${main.rows.length} proveedores`,main)}
        ${repColHTML('prev',`Pendientes de entregar — semana ${p.w} y anteriores`,`hasta el ${weekDates(p.y,p.w).sat.getDate()} de ${MESES_L[weekDates(p.y,p.w).sat.getMonth()]} ${weekDates(p.y,p.w).sat.getFullYear()}`,prev)}
      </div>
      <div class="rep-total"><span>Total a programar</span><b>${fmt(grand)}</b></div>`;
@@ -1958,7 +1997,11 @@ function dlRep(){
     gp.rows.forEach((r,i)=>{
       if(i%2){ctx.fillStyle='#F8FAFC';ctx.fillRect(x,yy,CW,ROW);}
       ctx.fillStyle='#94a3b8'; ctx.font='12px Arial'; ctx.textAlign='left'; ctx.fillText(String(i+1),x+10,yy+18);
-      ctx.fillStyle='#0f172a'; ctx.font='13px Arial'; ctx.fillText(fit(r.name,wkc?CW-300:CW-170),x+40,yy+18);
+      ctx.fillStyle='#0f172a'; ctx.font='13px Arial';
+      const nm=fit(r.name,wkc?CW-300:(r.prevSaldo?CW-420:CW-170)); ctx.fillText(nm,x+40,yy+18);
+      if(r.prevSaldo){ const nx=x+40+ctx.measureText(nm).width+8;
+        ctx.fillStyle='#8a6d00'; ctx.font='bold 11px Arial';
+        ctx.fillText(fit(`+ ${fmt(r.prevSaldo)} pend. (sem. ${r.prevWeeks})`,xr-140-nx),nx,yy+18); }
       if(wkc){ctx.fillStyle='#64748b'; ctx.font='12px Arial'; ctx.fillText(fit(r.weeks,120),xr-250,yy+18);}
       ctx.textAlign='right'; ctx.font='bold 13px Arial'; ctx.fillText(fmt(r.saldo),xr-12,yy+18);
       ctx.strokeStyle='#E2E8F0'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,yy+ROW); ctx.lineTo(xr,yy+ROW); ctx.stroke();
@@ -1969,7 +2012,7 @@ function dlRep(){
     ctx.fillText(`Subtotal (${gp.rows.length})`,x+40,yy+22);
     ctx.textAlign='right'; ctx.fillText(fmt(gp.total),xr-12,yy+22);
   };
-  col(L,`Proveedores a programar — Semana ${w}`,`${main.rows.length} proveedores`,BLUE,'#fff',BLUE_S,BLUE,main);
+  col(L,`Proveedores a programar — Semana ${w}${REP.unif?' (unificado)':''}`,`${main.rows.length} proveedores`,BLUE,'#fff',BLUE_S,BLUE,main);
   col(L+CW+GAP,`Pendientes de entregar — semana ${p.w} y anteriores`,`${prev.rows.length} proveedores`,LIME,DARK,LIME_S,DARK,prev);
   // Total
   const ty=top+Math.max(colH(main),colH(prev))+20;
