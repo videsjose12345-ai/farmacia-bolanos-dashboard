@@ -1810,6 +1810,9 @@ function repYear(r){ return venceYear(r); }
 function repWeekNum(r){ const n=Number(r.semanaVence); return n && !isNaN(n) ? n : null; }
 function repActive(r){ return (isPending(r.estatus)||isScheduled(r.estatus)) && (r.saldo??0) > 0; }
 
+// Orden A-Z por nombre (español, sin distinguir mayúsculas ni tildes)
+const repAZ=(a,b)=>a.name.localeCompare(b.name,'es',{sensitivity:'base',numeric:true});
+
 // Agrupa por Nombre Comercial las facturas activas de (año, semana)
 function repGroup(y,w){
   const m=new Map();
@@ -1820,7 +1823,7 @@ function repGroup(y,w){
     m.set(k,(m.get(k)||0)+(r.saldo??0));
   }
   const rows=[...m.entries()].map(([name,saldo])=>({name,saldo:Math.round(saldo*100)/100}))
-    .sort((a,b)=>b.saldo-a.saldo);
+    .sort(repAZ);
   const total=Math.round(rows.reduce((a,x)=>a+x.saldo,0)*100)/100;
   return {rows,total};
 }
@@ -1839,7 +1842,7 @@ function repGroupPrev(y,w){
   const lbl=key=>{const yy=Math.floor(key/100), ww=key%100; return yy===y?String(ww):`${ww}/${String(yy).slice(2)}`;};
   const rows=[...m.entries()].map(([name,v])=>({name,saldo:Math.round(v.saldo*100)/100,
       weeks:[...v.weeks].sort((a,b)=>a-b).map(lbl).join(', ')}))
-    .sort((a,b)=>b.saldo-a.saldo);
+    .sort(repAZ);
   const total=Math.round(rows.reduce((a,x)=>a+x.saldo,0)*100)/100;
   return {rows,total};
 }
@@ -1889,7 +1892,7 @@ function repUnify(main,prev){
       r.saldo=Math.round((r.saldo+pr.saldo)*100)/100;
     } else rest.push(pr);
   }
-  rows.sort((a,b)=>b.saldo-a.saldo);
+  rows.sort(repAZ);
   const sum=a=>Math.round(a.reduce((s,x)=>s+x.saldo,0)*100)/100;
   return { main:{rows,total:sum(rows)}, prev:{rows:rest,total:sum(rest)} };
 }
