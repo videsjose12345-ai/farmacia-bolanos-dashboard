@@ -341,14 +341,27 @@ table.rep td.m,table.rep th.m{text-align:right;white-space:nowrap;font-variant-n
 .rep-total b{font-size:26px;font-weight:800;color:var(--lg-lime);}
 @media(max-width:860px){.rep-cols{grid-template-columns:1fr;}}
 
+@page{size:letter landscape;margin:7mm;}
+.rep-wk{color:var(--tx3);font-size:12px;white-space:nowrap;}
 @media print{
-  body{background:#fff !important;}
-  .hdr,.tabs,#viewDash,.rep-noprint,.toast,.lov,.dbgbar,.errbar{display:none !important;}
-  .main{padding:0;max-width:none;}
-  #viewRep{display:block !important;}
-  .cc{box-shadow:none;border:none;backdrop-filter:none;background:#fff;}
-  .rep-banner,.rep-bar,.rep-col-h,.rep-total,table.rep th,table.rep tr.sub td{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-  .rep-cols{grid-template-columns:1fr 1fr !important;}
+  body.print-rep{background:#fff !important;}
+  body.print-rep .hdr,body.print-rep .tabs,body.print-rep #viewDash,body.print-rep .rep-noprint,
+  body.print-rep .toast,body.print-rep .lov,body.print-rep .dbgbar,body.print-rep .errbar{display:none !important;}
+  body.print-rep .main{padding:0;margin:0;max-width:none;}
+  body.print-rep #viewRep{display:block !important;}
+  body.print-rep #viewRep .cc{box-shadow:none;border:none;backdrop-filter:none;-webkit-backdrop-filter:none;
+    background:#fff;padding:0;width:1000px;}
+  body.print-rep .rep-cols{grid-template-columns:1fr 1fr !important;gap:12px;margin-top:10px;}
+  body.print-rep .rep-banner{padding:10px 16px;}
+  body.print-rep .rep-banner .bw{font-size:22px;}
+  body.print-rep table.rep{font-size:11px;}
+  body.print-rep table.rep td{padding:3px 8px;}
+  body.print-rep table.rep th{padding:5px 8px;}
+  body.print-rep .rep-total{margin-top:10px;padding:10px 18px;}
+  body.print-rep .rep-banner,body.print-rep .rep-bar,body.print-rep .rep-col-h,body.print-rep .rep-total,
+  body.print-rep table.rep th,body.print-rep table.rep tr.sub td,body.print-rep table.rep tr:nth-child(even) td
+    {-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  body.print-rep table.rep tr{break-inside:avoid;}
 }
 </style>
 </head>
@@ -528,7 +541,7 @@ table.rep td.m,table.rep th.m{text-align:right;white-space:nowrap;font-variant-n
   </div><!-- /viewDash -->
 
   <div id="viewRep" style="display:none">
-    <div class="sec">Reporte de Programación</div>
+    <div class="sec rep-noprint">Reporte de Programación</div>
     <div class="cc">
       <div class="rep-ctrl rep-noprint">
         <div>
@@ -536,7 +549,7 @@ table.rep td.m,table.rep th.m{text-align:right;white-space:nowrap;font-variant-n
           <select class="rep-sel" id="repWeek" onchange="renderRep()"></select>
         </div>
         <button class="btn btn-sm" onclick="dlRep()">⬇ Imagen</button>
-        <button class="btn btn-sm" onclick="window.print()">🖨 Imprimir / PDF</button>
+        <button class="btn btn-sm" onclick="printRep()">🖨 Imprimir / PDF</button>
       </div>
       <div id="repBody"><div class="rep-empty" style="margin-top:16px;border-radius:8px">Cargando datos…</div></div>
     </div>
@@ -1816,6 +1829,25 @@ function repGroup(y,w){
   return {rows,total};
 }
 
+// Pendientes de TODAS las semanas anteriores a la elegida (incluye la inmediata anterior)
+function repGroupPrev(y,w){
+  const limit=y*100+w, m=new Map();
+  for(const r of DATA){
+    if(!repActive(r)) continue;
+    const wk=repWeekNum(r), yr=repYear(r);
+    if(!wk || !yr || yr*100+wk>=limit) continue;
+    const k=((r.nombreComercial??'').toString().trim()) || ((r.razonSocial??'').toString().trim()) || '—';
+    const cur=m.get(k)||{saldo:0,weeks:new Set()};
+    cur.saldo+=(r.saldo??0); cur.weeks.add(yr*100+wk); m.set(k,cur);
+  }
+  const lbl=key=>{const yy=Math.floor(key/100), ww=key%100; return yy===y?String(ww):`${ww}/${String(yy).slice(2)}`;};
+  const rows=[...m.entries()].map(([name,v])=>({name,saldo:Math.round(v.saldo*100)/100,
+      weeks:[...v.weeks].sort((a,b)=>a-b).map(lbl).join(', ')}))
+    .sort((a,b)=>b.saldo-a.saldo);
+  const total=Math.round(rows.reduce((a,x)=>a+x.saldo,0)*100)/100;
+  return {rows,total};
+}
+
 // Llena el selector con las semanas que tienen facturas activas (+ semana actual)
 function repFillWeeks(){
   const sel=g('repWeek'); if(!sel) return;
@@ -1838,13 +1870,14 @@ function repFillWeeks(){
 }
 
 function repColHTML(cls,title,sub,grp){
+  const wk=cls==='prev';
   let html=`<div class="c-${cls}"><div class="rep-col-h ${cls}"><b>${repEsc(title)}</b><span>${repEsc(sub)}</span></div>`;
   if(!grp.rows.length) return html+`<div class="rep-empty">Sin facturas pendientes o programadas.</div></div>`;
-  html+=`<table class="rep"><thead><tr><th>#</th><th>Proveedor</th><th class="m">Saldo</th></tr></thead><tbody>`;
+  html+=`<table class="rep"><thead><tr><th>#</th><th>Proveedor</th>${wk?'<th>Semana</th>':''}<th class="m">Saldo</th></tr></thead><tbody>`;
   grp.rows.forEach((x,i)=>{
-    html+=`<tr><td class="n">${i+1}</td><td>${repEsc(x.name)}</td><td class="m">${fmt(x.saldo)}</td></tr>`;
+    html+=`<tr><td class="n">${i+1}</td><td>${repEsc(x.name)}</td>${wk?`<td class="rep-wk">${repEsc(x.weeks)}</td>`:''}<td class="m">${fmt(x.saldo)}</td></tr>`;
   });
-  html+=`<tr class="sub"><td></td><td>Subtotal (${grp.rows.length})</td><td class="m">${fmt(grp.total)}</td></tr></tbody></table></div>`;
+  html+=`<tr class="sub"><td></td><td>Subtotal (${grp.rows.length})</td>${wk?'<td></td>':''}<td class="m">${fmt(grp.total)}</td></tr></tbody></table></div>`;
   return html;
 }
 
@@ -1855,7 +1888,7 @@ function renderRep(){
   const k=Number(g('repWeek').value);
   const y=Math.floor(k/100), w=k%100;
   const p=prevWeek(y,w);
-  const main=repGroup(y,w), prev=repGroup(p.y,p.w);
+  const main=repGroup(y,w), prev=repGroupPrev(y,w);
   const grand=Math.round((main.total+prev.total)*100)/100;
   REP={y,w,p,main,prev,grand};
   const logo=document.querySelector('.logo')?.src||'';
@@ -1868,7 +1901,7 @@ function renderRep(){
      <div class="rep-bar"></div>
      <div class="rep-cols">
        ${repColHTML('main',`Proveedores a programar — Semana ${w}`,`${main.rows.length} proveedores`,main)}
-       ${repColHTML('prev',`Pendientes de semana anterior (${p.w})`,weekRange(p.y,p.w),prev)}
+       ${repColHTML('prev',`Pendientes de entregar — semana ${p.w} y anteriores`,`hasta el ${weekDates(p.y,p.w).sat.getDate()} de ${MESES_L[weekDates(p.y,p.w).sat.getMonth()]} ${weekDates(p.y,p.w).sat.getFullYear()}`,prev)}
      </div>
      <div class="rep-total"><span>Total a programar</span><b>${fmt(grand)}</b></div>`;
 }
@@ -1913,7 +1946,9 @@ function dlRep(){
     yy+=40;
     ctx.fillStyle=thBg; ctx.fillRect(x,yy,CW,30);
     ctx.fillStyle=thFg; ctx.font='bold 11px Arial'; ctx.textAlign='left';
+    const wkc=gp.rows.length && gp.rows[0].weeks!==undefined;
     ctx.fillText('#',x+10,yy+19); ctx.fillText('PROVEEDOR',x+40,yy+19);
+    if(wkc) ctx.fillText('SEMANA',xr-250,yy+19);
     ctx.textAlign='right'; ctx.fillText('SALDO',xr-12,yy+19);
     yy+=30;
     if(!gp.rows.length){
@@ -1923,7 +1958,8 @@ function dlRep(){
     gp.rows.forEach((r,i)=>{
       if(i%2){ctx.fillStyle='#F8FAFC';ctx.fillRect(x,yy,CW,ROW);}
       ctx.fillStyle='#94a3b8'; ctx.font='12px Arial'; ctx.textAlign='left'; ctx.fillText(String(i+1),x+10,yy+18);
-      ctx.fillStyle='#0f172a'; ctx.font='13px Arial'; ctx.fillText(fit(r.name,CW-170),x+40,yy+18);
+      ctx.fillStyle='#0f172a'; ctx.font='13px Arial'; ctx.fillText(fit(r.name,wkc?CW-300:CW-170),x+40,yy+18);
+      if(wkc){ctx.fillStyle='#64748b'; ctx.font='12px Arial'; ctx.fillText(fit(r.weeks,120),xr-250,yy+18);}
       ctx.textAlign='right'; ctx.font='bold 13px Arial'; ctx.fillText(fmt(r.saldo),xr-12,yy+18);
       ctx.strokeStyle='#E2E8F0'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,yy+ROW); ctx.lineTo(xr,yy+ROW); ctx.stroke();
       yy+=ROW;
@@ -1934,7 +1970,7 @@ function dlRep(){
     ctx.textAlign='right'; ctx.fillText(fmt(gp.total),xr-12,yy+22);
   };
   col(L,`Proveedores a programar — Semana ${w}`,`${main.rows.length} proveedores`,BLUE,'#fff',BLUE_S,BLUE,main);
-  col(L+CW+GAP,`Pendientes de semana anterior (${p.w})`,weekRange(p.y,p.w),LIME,DARK,LIME_S,DARK,prev);
+  col(L+CW+GAP,`Pendientes de entregar — semana ${p.w} y anteriores`,`${prev.rows.length} proveedores`,LIME,DARK,LIME_S,DARK,prev);
   // Total
   const ty=top+Math.max(colH(main),colH(prev))+20;
   ctx.fillStyle=DARK; rrx(ctx,L,ty,R-L,54,10);
@@ -1945,6 +1981,28 @@ function dlRep(){
   dlc(c,`programacion-semana-${w}-${y}.png`);
   toast('✓ Imagen del reporte guardada');
 }
+
+// Impresión: hoja horizontal, todo el reporte ajustado a UNA sola página
+function prepPrintRep(){
+  if(g('viewRep').style.display==='none') return;     // solo si está abierto el reporte
+  const cc=g('viewRep').querySelector('.cc');
+  document.body.classList.add('print-rep');
+  cc.style.zoom='';
+  // Área útil carta horizontal con márgenes de 7 mm (a 96 dpi)
+  const PAGE_W=1000, PAGE_H=760;
+  const prevW=cc.style.width; cc.style.width=PAGE_W+'px';
+  const hgt=cc.scrollHeight;
+  cc.style.width=prevW;
+  const z=Math.min(1, PAGE_H/hgt);
+  cc.style.zoom=z<1?String(Math.floor(z*1000)/1000):'';
+}
+function endPrintRep(){
+  document.body.classList.remove('print-rep');
+  const cc=g('viewRep')?.querySelector('.cc'); if(cc) cc.style.zoom='';
+}
+function printRep(){ prepPrintRep(); window.print(); }
+window.addEventListener('beforeprint',()=>{ if(!document.body.classList.contains('print-rep')) prepPrintRep(); });
+window.addEventListener('afterprint',endPrintRep);
 
 /* ════════════════════════════════════════════════════════════════
    UTILIDADES DOM
