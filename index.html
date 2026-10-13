@@ -288,6 +288,68 @@ table.ht tr:last-child td{border-bottom:none;}
   .hdr{padding:0 14px;height:auto;flex-wrap:wrap;
     padding-top:10px;padding-bottom:10px;gap:8px;}
 }
+
+/* ── PESTAÑAS ────────────────────────────────── */
+.tabs{display:flex;gap:6px;background:rgba(255,255,255,0.78);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  padding:5px;border-radius:12px;width:fit-content;margin-bottom:8px;
+  border:1px solid var(--glass-b);box-shadow:0 4px 16px rgba(0,60,60,0.12);}
+.tab{padding:9px 20px;border-radius:9px;border:none;background:transparent;
+  color:#0C7A6E;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;
+  transition:background .15s,color .15s;}
+.tab:hover{background:#E6F7F5;}
+.tab.active{background:#0C7A6E;color:#fff;box-shadow:0 2px 8px rgba(12,122,110,.35);}
+
+/* ── REPORTE DE PROGRAMACIÓN (colores del logo) ── */
+:root{--lg-dark:#02343F;--lg-blue:#067F90;--lg-lime:#BFD83E;--lg-lime-s:#F4F9DC;--lg-blue-s:#E3F3F5;}
+.rep-ctrl{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:flex-end;margin-bottom:14px;}
+.rep-ctrl label{display:block;font-size:10px;font-weight:700;color:var(--lg-dark);
+  text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px;}
+.rep-sel{padding:9px 12px;border:1.5px solid var(--b2);border-radius:var(--rs);
+  font-size:14px;font-family:inherit;background:#fff;color:var(--tx);min-width:260px;}
+.rep-sel:focus{outline:none;border-color:var(--lg-blue);box-shadow:0 0 0 3px rgba(6,127,144,.15);}
+.rep-banner{background:var(--lg-dark);color:#fff;border-radius:var(--r) var(--r) 0 0;
+  padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+.rep-banner .bt{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--lg-lime);font-weight:800;}
+.rep-banner .bw{font-size:26px;font-weight:800;line-height:1.15;margin-top:2px;}
+.rep-banner .br{font-size:15px;color:#cfe7ea;margin-top:3px;}
+.rep-banner .bl{height:46px;object-fit:contain;background:#fff;border-radius:8px;padding:4px 10px;}
+.rep-bar{height:5px;background:linear-gradient(90deg,var(--lg-lime),var(--lg-blue));}
+.rep-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;}
+.rep-col-h{padding:11px 14px;border-radius:var(--rs) var(--rs) 0 0;display:flex;
+  justify-content:space-between;align-items:baseline;gap:6px;flex-wrap:wrap;}
+.rep-col-h b{font-size:14px;}
+.rep-col-h span{font-size:12px;}
+.rep-col-h.main{background:var(--lg-blue);color:#fff;}
+.rep-col-h.main span{color:#d6f0f3;}
+.rep-col-h.prev{background:var(--lg-lime);color:var(--lg-dark);}
+table.rep{width:100%;border-collapse:collapse;font-size:13px;background:#fff;}
+table.rep th{text-align:left;padding:8px 12px;font-size:10px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.07em;}
+.c-main table.rep th{background:var(--lg-blue-s);color:var(--lg-blue);border-bottom:2px solid var(--lg-blue);}
+.c-prev table.rep th{background:var(--lg-lime-s);color:var(--lg-dark);border-bottom:2px solid var(--lg-lime);}
+table.rep td{padding:8px 12px;border-bottom:1px solid var(--b1);color:var(--tx);font-weight:500;}
+table.rep tr:nth-child(even) td{background:#F8FAFC;}
+table.rep td.n{width:36px;color:var(--tx3);}
+table.rep td.m,table.rep th.m{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.c-main table.rep tr.sub td{background:var(--lg-blue-s);color:var(--lg-blue);font-weight:800;border-top:2px solid var(--lg-blue);}
+.c-prev table.rep tr.sub td{background:var(--lg-lime-s);color:var(--lg-dark);font-weight:800;border-top:2px solid var(--lg-lime);}
+.rep-empty{padding:16px;background:#fff;color:var(--tx3);font-size:13px;border-radius:0 0 var(--rs) var(--rs);}
+.rep-total{margin-top:16px;display:flex;justify-content:space-between;align-items:center;
+  padding:16px 22px;border-radius:var(--r);background:var(--lg-dark);color:#fff;border-left:8px solid var(--lg-lime);}
+.rep-total span{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#cfe7ea;font-weight:700;}
+.rep-total b{font-size:26px;font-weight:800;color:var(--lg-lime);}
+@media(max-width:860px){.rep-cols{grid-template-columns:1fr;}}
+
+@media print{
+  body{background:#fff !important;}
+  .hdr,.tabs,#viewDash,.rep-noprint,.toast,.lov,.dbgbar,.errbar{display:none !important;}
+  .main{padding:0;max-width:none;}
+  #viewRep{display:block !important;}
+  .cc{box-shadow:none;border:none;backdrop-filter:none;background:#fff;}
+  .rep-banner,.rep-bar,.rep-col-h,.rep-total,table.rep th,table.rep tr.sub td{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .rep-cols{grid-template-columns:1fr 1fr !important;}
+}
 </style>
 </head>
 <body>
@@ -316,6 +378,13 @@ table.ht tr:last-child td{border-bottom:none;}
 <div class="main">
   <div class="dbgbar" id="dbgbar"></div>
   <div class="errbar" id="errbar"></div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab active" id="tabDash" role="tab" onclick="showTab('dash')">Dashboard</button>
+    <button class="tab" id="tabRep" role="tab" onclick="showTab('rep')">Reporte de Programación</button>
+  </div>
+
+  <div id="viewDash">
 
   <div class="sec">Indicadores Principales</div>
   <div class="kgrid">
@@ -455,6 +524,22 @@ table.ht tr:last-child td{border-bottom:none;}
       </div>
     </div>
     <div class="cwrap" style="height:280px"><canvas id="cInv" role="img" aria-label="Valor de inventario">Inventario.</canvas></div>
+  </div>
+  </div><!-- /viewDash -->
+
+  <div id="viewRep" style="display:none">
+    <div class="sec">Reporte de Programación</div>
+    <div class="cc">
+      <div class="rep-ctrl rep-noprint">
+        <div>
+          <label for="repWeek">Semana a programar</label>
+          <select class="rep-sel" id="repWeek" onchange="renderRep()"></select>
+        </div>
+        <button class="btn btn-sm" onclick="dlRep()">⬇ Imagen</button>
+        <button class="btn btn-sm" onclick="window.print()">🖨 Imprimir / PDF</button>
+      </div>
+      <div id="repBody"><div class="rep-empty" style="margin-top:16px;border-radius:8px">Cargando datos…</div></div>
+    </div>
   </div>
 </div>
 
@@ -836,6 +921,7 @@ function recalcAll() {
   renderMes();
   renderMesEmision();
   renderEst(kpis);
+  renderRep();
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -1661,6 +1747,203 @@ function dlProv(){
     .replace(/[^a-zA-Z0-9]/g,'-').slice(0,28).toUpperCase();
   dlc(c,'proveedor-'+sn+'-'+new Date().toISOString().slice(0,10)+'.png');
   toast('✓ Imagen de proveedor guardada');
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PESTAÑAS — Dashboard | Reporte de Programación
+════════════════════════════════════════════════════════════════ */
+function showTab(t){
+  const rep = t==='rep';
+  g('viewDash').style.display = rep ? 'none' : 'block';
+  g('viewRep').style.display  = rep ? 'block' : 'none';
+  g('tabDash').classList.toggle('active', !rep);
+  g('tabRep').classList.toggle('active', rep);
+  if(rep) renderRep();
+  window.scrollTo(0,0);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   REPORTE DE PROGRAMACIÓN
+   - Semana elegida (SEMANA VENCE): facturas PENDIENTE / PROGRAMADA
+   - Semana anterior: facturas que siguen PENDIENTE / PROGRAMADA (no pagadas)
+   - Una fila por proveedor (Nombre Comercial) con el SALDO sumado
+════════════════════════════════════════════════════════════════ */
+let REP = null;   // último reporte calculado (para la imagen)
+
+function repEsc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+// Semanas ISO que tiene un año (52 o 53)
+function weeksInYear(y){ return getIsoWeek(new Date(y,11,28)); }
+
+// Lunes a sábado de una semana ISO → "del 12 al 17 de octubre 2026"
+const MESES_L=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function weekDates(y,w){
+  const j4=new Date(y,0,4), d=j4.getDay()||7;
+  const mon=new Date(y,0,4-(d-1)+(w-1)*7);
+  const sat=new Date(mon); sat.setDate(mon.getDate()+5);
+  return {mon,sat};
+}
+function weekRange(y,w){
+  const {mon,sat}=weekDates(y,w);
+  const dm=mon.getDate(), ds=sat.getDate();
+  const mm=MESES_L[mon.getMonth()], ms=MESES_L[sat.getMonth()];
+  if(mon.getFullYear()!==sat.getFullYear())
+    return `del ${dm} de ${mm} ${mon.getFullYear()} al ${ds} de ${ms} ${sat.getFullYear()}`;
+  if(mon.getMonth()!==sat.getMonth())
+    return `del ${dm} de ${mm} al ${ds} de ${ms} ${sat.getFullYear()}`;
+  return `del ${dm} al ${ds} de ${ms} ${sat.getFullYear()}`;
+}
+
+function prevWeek(y,w){ return w>1 ? {y, w:w-1} : {y:y-1, w:weeksInYear(y-1)}; }
+
+// Año de la fila: AÑO VENCE (o año de VENCIMIENTO)
+function repYear(r){ return venceYear(r); }
+function repWeekNum(r){ const n=Number(r.semanaVence); return n && !isNaN(n) ? n : null; }
+function repActive(r){ return (isPending(r.estatus)||isScheduled(r.estatus)) && (r.saldo??0) > 0; }
+
+// Agrupa por Nombre Comercial las facturas activas de (año, semana)
+function repGroup(y,w){
+  const m=new Map();
+  for(const r of DATA){
+    if(!repActive(r)) continue;
+    if(repWeekNum(r)!==w || repYear(r)!==y) continue;
+    const k=((r.nombreComercial??'').toString().trim()) || ((r.razonSocial??'').toString().trim()) || '—';
+    m.set(k,(m.get(k)||0)+(r.saldo??0));
+  }
+  const rows=[...m.entries()].map(([name,saldo])=>({name,saldo:Math.round(saldo*100)/100}))
+    .sort((a,b)=>b.saldo-a.saldo);
+  const total=Math.round(rows.reduce((a,x)=>a+x.saldo,0)*100)/100;
+  return {rows,total};
+}
+
+// Llena el selector con las semanas que tienen facturas activas (+ semana actual)
+function repFillWeeks(){
+  const sel=g('repWeek'); if(!sel) return;
+  const prevVal=sel.value;
+  const set=new Set();
+  for(const r of DATA){
+    if(!repActive(r)) continue;
+    const w=repWeekNum(r), y=repYear(r);
+    if(w && y) set.add(y*100+w);
+  }
+  const now=new Date(), cy=now.getFullYear(), cw=getIsoWeek(now);
+  set.add(cy*100+cw);
+  const keys=[...set].sort((a,b)=>a-b);
+  sel.innerHTML=keys.map(k=>{
+    const y=Math.floor(k/100), w=k%100;
+    const cur=(y===cy&&w===cw)?' (semana actual)':'';
+    return `<option value="${k}">Semana ${w} — ${y}${cur}</option>`;
+  }).join('');
+  sel.value = (prevVal && keys.includes(Number(prevVal))) ? prevVal : String(cy*100+cw);
+}
+
+function repColHTML(cls,title,sub,grp){
+  let html=`<div class="c-${cls}"><div class="rep-col-h ${cls}"><b>${repEsc(title)}</b><span>${repEsc(sub)}</span></div>`;
+  if(!grp.rows.length) return html+`<div class="rep-empty">Sin facturas pendientes o programadas.</div></div>`;
+  html+=`<table class="rep"><thead><tr><th>#</th><th>Proveedor</th><th class="m">Saldo</th></tr></thead><tbody>`;
+  grp.rows.forEach((x,i)=>{
+    html+=`<tr><td class="n">${i+1}</td><td>${repEsc(x.name)}</td><td class="m">${fmt(x.saldo)}</td></tr>`;
+  });
+  html+=`<tr class="sub"><td></td><td>Subtotal (${grp.rows.length})</td><td class="m">${fmt(grp.total)}</td></tr></tbody></table></div>`;
+  return html;
+}
+
+function renderRep(){
+  const body=g('repBody'); if(!body) return;
+  if(!DATA.length){ body.innerHTML='<div class="rep-empty" style="border-radius:8px">Sin datos todavía. Presiona Actualizar.</div>'; return; }
+  repFillWeeks();
+  const k=Number(g('repWeek').value);
+  const y=Math.floor(k/100), w=k%100;
+  const p=prevWeek(y,w);
+  const main=repGroup(y,w), prev=repGroup(p.y,p.w);
+  const grand=Math.round((main.total+prev.total)*100)/100;
+  REP={y,w,p,main,prev,grand};
+  const logo=document.querySelector('.logo')?.src||'';
+  body.innerHTML =
+    `<div class="rep-banner"><div>
+        <div class="bt">Programación de pagos</div>
+        <div class="bw">Semana ${w}</div>
+        <div class="br">${repEsc(weekRange(y,w))}</div>
+      </div>${logo?`<img class="bl" src="${logo}" alt="Farmacia Bolaños">`:''}</div>
+     <div class="rep-bar"></div>
+     <div class="rep-cols">
+       ${repColHTML('main',`Proveedores a programar — Semana ${w}`,`${main.rows.length} proveedores`,main)}
+       ${repColHTML('prev',`Pendientes de semana anterior (${p.w})`,weekRange(p.y,p.w),prev)}
+     </div>
+     <div class="rep-total"><span>Total a programar</span><b>${fmt(grand)}</b></div>`;
+}
+
+// Imagen del reporte (logo, fecha y hora, alta resolución)
+function dlRep(){
+  if(!REP){toast('⚠ Sin datos para exportar');return;}
+  const {y,w,p,main,prev,grand}=REP;
+  const DARK='#02343F', BLUE='#067F90', LIME='#BFD83E', BLUE_S='#E3F3F5', LIME_S='#F4F9DC';
+  const W=1300, ROW=28, L=24, R=W-24, GAP=20, CW=(R-L-GAP)/2;
+  const colH=gp=>40+30+(gp.rows.length?gp.rows.length*ROW+34:40);
+  const BANNER=104;
+  const H=BANNER+20+Math.max(colH(main),colH(prev))+20+60+50;
+  const SCALE=3;
+  const c=g('xc'); c.width=W*SCALE; c.height=H*SCALE;
+  const ctx=c.getContext('2d'); ctx.setTransform(SCALE,0,0,SCALE,0,0);
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+  // Encabezado
+  ctx.fillStyle=DARK; ctx.fillRect(0,0,W,BANNER-6);
+  const gr=ctx.createLinearGradient(0,0,W,0); gr.addColorStop(0,LIME); gr.addColorStop(1,BLUE);
+  ctx.fillStyle=gr; ctx.fillRect(0,BANNER-6,W,6);
+  ctx.textAlign='left';
+  ctx.fillStyle=LIME; ctx.font='bold 13px Arial'; ctx.fillText('PROGRAMACIÓN DE PAGOS',L+4,30);
+  ctx.fillStyle='#fff'; ctx.font='bold 30px Arial'; ctx.fillText(`Semana ${w}`,L+4,64);
+  ctx.fillStyle='#cfe7ea'; ctx.font='16px Arial'; ctx.fillText(weekRange(y,w),L+4,86);
+  if(LOGO_IMG.complete && LOGO_IMG.naturalWidth>0){
+    const lh=60, lw=Math.round(lh*LOGO_IMG.naturalWidth/LOGO_IMG.naturalHeight);
+    ctx.fillStyle='#fff'; rrx(ctx,R-lw-20,16,lw+20,lh+12,8);
+    ctx.drawImage(LOGO_IMG,R-lw-10,22,lw,lh);
+  }
+  const now=new Date();
+  ctx.textAlign='right'; ctx.fillStyle='#9fc4c9'; ctx.font='11px Arial';
+  ctx.fillText('Generado: '+now.toLocaleDateString('es-SV')+' '+now.toLocaleTimeString('es-SV',{hour:'2-digit',minute:'2-digit'}),R-260,30);
+  const top=BANNER+20;
+  const fit=(s,max)=>{ if(ctx.measureText(s).width<=max) return s;
+    while(s.length>1 && ctx.measureText(s+'…').width>max) s=s.slice(0,-1); return s+'…'; };
+  const col=(x,title,sub,hdBg,hdFg,thBg,thFg,gp)=>{
+    let yy=top; const xr=x+CW;
+    ctx.fillStyle=hdBg; rrx(ctx,x,yy,CW,40,8);
+    ctx.fillStyle=hdFg; ctx.textAlign='left'; ctx.font='bold 14px Arial'; ctx.fillText(fit(title,CW-200),x+12,yy+25);
+    ctx.textAlign='right'; ctx.font='12px Arial'; ctx.fillText(fit(sub,190),xr-12,yy+25);
+    yy+=40;
+    ctx.fillStyle=thBg; ctx.fillRect(x,yy,CW,30);
+    ctx.fillStyle=thFg; ctx.font='bold 11px Arial'; ctx.textAlign='left';
+    ctx.fillText('#',x+10,yy+19); ctx.fillText('PROVEEDOR',x+40,yy+19);
+    ctx.textAlign='right'; ctx.fillText('SALDO',xr-12,yy+19);
+    yy+=30;
+    if(!gp.rows.length){
+      ctx.fillStyle='#94a3b8'; ctx.font='13px Arial'; ctx.textAlign='left';
+      ctx.fillText('Sin facturas pendientes o programadas.',x+10,yy+24); return;
+    }
+    gp.rows.forEach((r,i)=>{
+      if(i%2){ctx.fillStyle='#F8FAFC';ctx.fillRect(x,yy,CW,ROW);}
+      ctx.fillStyle='#94a3b8'; ctx.font='12px Arial'; ctx.textAlign='left'; ctx.fillText(String(i+1),x+10,yy+18);
+      ctx.fillStyle='#0f172a'; ctx.font='13px Arial'; ctx.fillText(fit(r.name,CW-170),x+40,yy+18);
+      ctx.textAlign='right'; ctx.font='bold 13px Arial'; ctx.fillText(fmt(r.saldo),xr-12,yy+18);
+      ctx.strokeStyle='#E2E8F0'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,yy+ROW); ctx.lineTo(xr,yy+ROW); ctx.stroke();
+      yy+=ROW;
+    });
+    ctx.fillStyle=thBg; ctx.fillRect(x,yy,CW,34);
+    ctx.fillStyle=thFg; ctx.font='bold 13px Arial'; ctx.textAlign='left';
+    ctx.fillText(`Subtotal (${gp.rows.length})`,x+40,yy+22);
+    ctx.textAlign='right'; ctx.fillText(fmt(gp.total),xr-12,yy+22);
+  };
+  col(L,`Proveedores a programar — Semana ${w}`,`${main.rows.length} proveedores`,BLUE,'#fff',BLUE_S,BLUE,main);
+  col(L+CW+GAP,`Pendientes de semana anterior (${p.w})`,weekRange(p.y,p.w),LIME,DARK,LIME_S,DARK,prev);
+  // Total
+  const ty=top+Math.max(colH(main),colH(prev))+20;
+  ctx.fillStyle=DARK; rrx(ctx,L,ty,R-L,54,10);
+  ctx.fillStyle=LIME; ctx.fillRect(L,ty,8,54);
+  ctx.fillStyle='#cfe7ea'; ctx.font='bold 13px Arial'; ctx.textAlign='left'; ctx.fillText('TOTAL A PROGRAMAR',L+24,ty+33);
+  ctx.fillStyle=LIME; ctx.font='bold 24px Arial'; ctx.textAlign='right'; ctx.fillText(fmt(grand),R-20,ty+36);
+  drawFtr(ctx,W,H);
+  dlc(c,`programacion-semana-${w}-${y}.png`);
+  toast('✓ Imagen del reporte guardada');
 }
 
 /* ════════════════════════════════════════════════════════════════
