@@ -429,7 +429,7 @@ table.rep td.m .rep-unif-note{text-align:right;}
     <div class="chdr">
       <div>
         <div class="ctitle">Proyección de Pagos</div>
-        <div class="csub">Saldo por semana de vencimiento — solo PENDIENTE / PROGRAMADA · AÑO VENCE 2026</div>
+        <div class="csub">Saldo por semana de vencimiento — solo PENDIENTE / PROGRAMADA · <span class="yrNow">año actual</span> en adelante</div>
       </div>
       <button class="btn btn-sm" onclick="xChart('proy','Proyección de Pagos')">⬇ Imagen</button>
     </div>
@@ -505,7 +505,7 @@ table.rep td.m .rep-unif-note{text-align:right;}
     <div class="chdr">
       <div>
         <div class="ctitle">Ingresos por Mes de Emisión</div>
-        <div class="csub">Suma de SALDO por mes de emisión — Año 2026</div>
+        <div class="csub">Suma de SALDO por mes de emisión — <span class="yrNow">año actual</span> en adelante</div>
       </div>
       <button class="btn btn-sm" onclick="xChart('mesEmis','Ingresos por Mes de Emisión')">⬇ Imagen</button>
     </div>
@@ -666,6 +666,49 @@ function getIsoWeek(d) {
   date.setUTCDate(date.getUTCDate() + 4 - day);
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
   return Math.ceil(((date - yearStart) / 86400000 + 1) / 7);
+}
+
+// ── AÑO ACTUAL EN ADELANTE (solo Proyección de Pagos, Pagos por Mes e Ingresos por Mes de Emisión) ──
+function curYear(){ return new Date().getFullYear(); }
+// Año de una semana ISO: la semana 53 que cae en enero es del año anterior;
+// la semana 1 que cae en diciembre es del año siguiente.
+function isoYr(y,w,d){
+  if(d instanceof Date && !isNaN(d)){
+    const m=d.getMonth(), yy=d.getFullYear();
+    if(w>=52 && m===0)  return yy-1;
+    if(w===1 && m===11) return yy+1;
+    return yy;
+  }
+  return y;
+}
+function wkLabel(y,w){ return y===curYear() ? 'S'+w : 'S'+w+'/'+String(y).slice(2); }
+// Agrupa por año+semana en orden cronológico (S1/27 después de S53 de 2026)
+function groupBySemanaY(rows, pickYear, pickWeek, pickDate, pickValue, filter){
+  const map=new Map();
+  for(const r of rows){
+    if(filter && !filter(r)) continue;
+    const w=Number(pickWeek(r)); if(!w||isNaN(w)) continue;
+    const y=isoYr(pickYear(r),w,pickDate(r)); if(!y || y<curYear()) continue;
+    const k=y*100+w;
+    const cur=map.get(k) ?? {week:w,year:y,key:k,label:wkLabel(y,w),value:0};
+    cur.value+=pickValue(r); map.set(k,cur);
+  }
+  return [...map.values()].sort((a,b)=>a.key-b.key)
+    .map(v=>({...v,value:Math.round(v.value*100)/100}));
+}
+// Agrupa por año+mes en orden cronológico (Ene 27 después de Dic 2026)
+const MES_ABR=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+function groupByMesY(rows, pickDate){
+  const map=new Map(), cy=curYear();
+  for(const r of rows){
+    const d=pickDate(r); if(!(d instanceof Date)||isNaN(d)) continue;
+    const y=d.getFullYear(); if(y<cy) continue;
+    const k=y*12+d.getMonth();
+    const cur=map.get(k) ?? {key:k,label:MES_ABR[d.getMonth()]+(y===cy?'':' '+String(y).slice(2)),value:0};
+    cur.value+=r.saldo??0; map.set(k,cur);
+  }
+  return [...map.values()].sort((a,b)=>a.key-b.key)
+    .map(v=>({...v,value:Math.round(v.value*100)/100})).filter(d=>d.value>0);
 }
 
 // ── groupBySemana (replica función del TSX) ──
@@ -922,6 +965,7 @@ const CFG_AUTO_REFRESH = 0;
    RECALCULAR TODO — replica DashboardBody useMemo hooks
 ════════════════════════════════════════════════════════════════ */
 function recalcAll() {
+  document.querySelectorAll('.yrNow').forEach(e=>e.textContent=String(curYear()));
   const kpis = calcKPIs();
   renderKPIs(kpis);
   renderProy();
@@ -990,12 +1034,14 @@ const GX='#94A3B8', GG='rgba(0,0,0,0.05)';
 const TT={callbacks:{label:c=>fmt(c.raw)}};
 function mkChart(id,cfg){if(CH[id])CH[id].destroy();CH[id]=new Chart(document.getElementById(id),cfg);}
 
-/* Proyección de Pagos — PENDIENTE||PROGRAMADA, AÑO VENCE=2026, agrupado por semanaVence */
+/* Proyección de Pagos — PENDIENTE||PROGRAMADA, año actual en adelante, orden cronológico año+semana */
 function renderProy() {
-  const pts = groupBySemana(DATA,
+  const pts = groupBySemanaY(DATA,
+    r => venceYear(r),
     r => r.semanaVence,
+    r => r.vencimiento,
     r => r.saldo ?? 0,
-    r => (isPending(r.estatus) || isScheduled(r.estatus)) && venceYear(r) === 2026
+    r => (isPending(r.estatus) || isScheduled(r.estatus))
   );
   console.log('[Proyección] puntos:', pts.length, pts.slice(0,3));
   const labels = pts.map(p=>p.label);
@@ -1269,19 +1315,10 @@ function renderTop() {
 }
 
 
-/* Pagos por Mes — fechaEntrega, AÑO_ENTREGA=2026, suma saldo */
+/* Pagos por Mes — fechaEntrega, año actual en adelante, orden cronológico año+mes */
 function renderMes() {
-  txt('mesSub','Suma de SALDO por mes de entrega — Año 2026');
-  const MESES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const tots = new Array(12).fill(0);
-  for (const r of DATA) {
-    if (!r.fechaEntrega) continue;
-    if (entregaYear(r) !== 2026) continue;
-    tots[r.fechaEntrega.getMonth()] += r.saldo ?? 0;
-  }
-  const data = tots
-    .map((v,i)=>({label:MESES[i],value:Math.round(v*100)/100}))
-    .filter(d=>d.value>0);
+  txt('mesSub','Suma de SALDO por mes de entrega — '+curYear()+' en adelante');
+  const data = groupByMesY(DATA, r => r.fechaEntrega);
   console.log('[PagosMes] meses con datos:', data.length, data);
   const labels = data.map(d=>d.label);
   const vals   = data.map(d=>d.value);
@@ -1300,20 +1337,11 @@ function renderMes() {
   });
 }
 
-/* Pagos por Mes de Emisión — fechaEmision, AÑO_EMISION=2026, suma saldo
+/* Pagos por Mes de Emisión — fechaEmision, año actual en adelante, orden cronológico año+mes
    Réplica exacta del estilo de renderMes pero agrupando por FECHA DE EMISIÓN.
    NO modifica renderMes ni ningún otro gráfico. */
 function renderMesEmision() {
-  const MESES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const tots = new Array(12).fill(0);
-  for (const r of DATA) {
-    if (!r.fechaEmision) continue;
-    if (emisionYear(r) !== 2026) continue;
-    tots[r.fechaEmision.getMonth()] += r.saldo ?? 0;
-  }
-  const data = tots
-    .map((v,i)=>({label:MESES[i],value:Math.round(v*100)/100}))
-    .filter(d=>d.value>0);
+  const data = groupByMesY(DATA, r => r.fechaEmision);
   console.log('[PagosMesEmision] meses con datos:', data.length, data);
   const labels = data.map(d=>d.label);
   const vals   = data.map(d=>d.value);
